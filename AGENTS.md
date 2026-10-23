@@ -107,6 +107,7 @@ config.json       token + baseUrl（gitignore，绝不写入本文件）
 | 媒体处理 | `video.frame`（抽帧，默认取尾帧当下一段首帧）/ `video.concat`（拼接，按连线顺序，**直接落 downloads** 并输出 `/downloads/xxx`，`output.download` 不再抓一遍）/ `image.fit`（比例修正到 0.4–2.5）/ `video.info`（探针）。全经 `lib/media-tools.mjs`，输入可以是 https、`/downloads/xxx` 或 `file:///`，由 `toLocalPath` 归一 |
 | 界面风格 | **边界靠背景色阶区分**（bg → surface-1/2/3/4），只有状态（选中 / 聚焦 / 成功 / 失败）才用描边或光晕；图标一律走 `components/Icons.jsx`，不散落 lucide |
 | 文案 | **UI 文案一律走 `web/src/i18n.jsx`**，节点/字段用 `labelKey`，不许写死语言；首次跟随浏览器语言，缺省中文。篇幅大的内容只好单独建档：剧本预设 → `presets.js`，节点使用说明 → `help.js`（`components/NodeHelp.jsx` 渲染，与 `model.js` 给 LLM 的英文 `doc` 是**两套**，别混） |
+| 变更记录 | 功能/接口/行为有实质改动时同步 `CHANGELOG.md`（Keep a Changelog 结构 + 中文正文，小标题用 Added/Changed/Fixed/Removed/Docs）；发版时把 `Unreleased` 归档成版本段并同步 `package.json` 版本号 |
 | 运行/干跑 | 同一流同时只允许 **1 个 run**（第二个 409，防重复扣费）；失败自动 DELETE 网关任务（**全额退款**），状态钉在出错节点；`dryRun:true` 只回计划+预估，**不碰网关**；计费按网关单价计算，素材前 5 张免费 |
 | 运行态 / 落盘 | `runNodes` 与 `nodes` 分开，渲染合成 `displayNodes`，运行态永不写回图；下载只在 `output.download` 落地，前端 `afterRun` 不许再下一次 |
 | 剧本预设 | 13 条 / 5 组，正文在 `web/src/presets.js`（{zh,en} 内联）；点一下**只填入输入框**，不自动执行；每条自带五要素（题材/人物/节拍/镜头/时长分辨率+负向词方向） |
