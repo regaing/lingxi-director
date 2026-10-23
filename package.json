@@ -1,0 +1,36 @@
+{
+  "name": "lingxi-director",
+  "type": "module",
+  "version": "0.2.0",
+  "description": "MiniMax-H3 视频生成工作台（节点画布工作流，直连秘塔）",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "video-generation",
+    "node-graph",
+    "workflow",
+    "minimax",
+    "react-flow",
+    "ffmpeg"
+  ],
+  "scripts": {
+    "dev": "vite --config web/vite.config.js",
+    "build": "vite build --config web/vite.config.js",
+    "start": "node server.mjs",
+    "serve": "npm run build && node server.mjs"
+  },
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
+    "@xyflow/react": "^12.3.5",
+    "lucide-react": "^1.61.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.11"
+  }
+}

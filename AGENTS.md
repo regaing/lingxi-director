@@ -1,0 +1,123 @@
+# AGENTS.md · 灵动导演台（MiniMax-H3）
+
+> 本文件是给 AI 助手读的项目上下文，**由 AI 自动维护**；维护规则见第 0 节。
+
+---
+
+## 0. 自动维护规则（AI 必须遵守）
+
+本文件由 AI 自动维护，本节规则优先于其它内容。
+
+### 何时更新
+产生**实质性改动**后：增删改文件或目录；改启动方式、端口、依赖、构建步骤；改与网关的接口约定、参数限制、互斥关系；用户表达新偏好或否决某做法。
+**没有实质改动的对话（闲聊、问答、只读查询）不要动本文件。**
+
+### 只写两类
+1. **项目事实**：是什么、怎么跑、目录职责、关键路径
+2. **硬约定**：接口/参数硬限制、互斥关系、必填项
+
+### 不要写
+一次性任务过程、进度流水账；读代码就能拿到的东西（函数名、行号、逐行逻辑）；**任何密钥、Token、Cookie、内网地址**（`config.json` 的 Token 永不进本文件）；未验证的猜测（不确定就标"未验证"）。
+
+### 怎么写
+一行一条，能删就删；**先搜同类条目，有就改不要追加**；允许重排合并压缩，原意不丢；总量 **≤ 300 行**；只写"下一个接手的人用得上的"。
+
+---
+
+## 1. 项目概况
+
+MiniMax-H3 视频生成的**本地节点画布导演台**：拖节点搭工作流 → 提交 → 轮询 → 预览/下载。
+图、分类、通知全部落 **SQLite（`data/workbench.db`）**，是**唯一真相**；改图一律走 HTTP 语义化 ops，**已放弃直接改文件那条路**。
+
+- 前端 React + `@xyflow/react`（**有构建步骤**），后端**只用 Node 内置模块**（含 `node:sqlite`）；媒体处理唯一外部依赖是 npm 分发的 ffmpeg 二进制。接入平台：**秘塔 H3**，协议与 MiniMax 官方 `/v2` **同构**
+- 品牌名「灵动导演台」（`i18n` 的 `app.name`），logo 源文件 `web/public/logo.svg`，组件封装在 `components/Logo.jsx`
+
+## 2. 怎么跑
+
+```powershell
+cd lingxi-director
+npm install          # 仅首次；会顺带装好 ffmpeg/ffprobe 二进制，无需系统单独安装
+npm run build        # 产出 public/；改过 web/ 后必须重跑
+node server.mjs      # 起服务，等同 npm start
+```
+
+- **开源项目，依赖只走 npm**：`@ffmpeg-installer/ffmpeg` + `@ffprobe-installer/ffprobe` 连二进制一起分发，用户 `npm install` 就够；不要引需要联网下载二进制（如 `ffmpeg-static` 走 GitHub Release）的包，国内装不上
+
+- `npm run dev` 起 Vite（5173，proxy `/api` → 8070），改前端热更新
+- 地址 `http://127.0.0.1:8070`（`PORT` 可改）；**Node >= 22**（`node:sqlite` 内置）；`node server.mjs` 可独立启动，前提 `public/` 有构建产物
+- 首次启动自动把旧 `workflows/*.json` 导入 `data/workbench.db`，原文件移到 `workflows/_imported/`，运行期不再读 JSON
+- 网关地址优先级：`config.json` 的 `baseUrl` > `MINIMAX_BASE_URL` > 内置默认
+- 前端两页走 hash 路由：`#/` 首页（多画布列表）、`#/wf/<id>` 编辑器
+
+## 3. 目录职责
+
+```
+server.mjs           本地服务：静态托管 + 网关薄代理 + 产物下载 + 图/分类/通知路由
+lib/db.mjs           SQLite 连接（node:sqlite）+ 建表 + WAL
+lib/workflows.mjs    图存储：CRUD + revision 乐观锁 + 语义化 ops patch + 分类
+lib/notifications.mjs 通知存储（只留最近 200 条）
+lib/runs.mjs         运行记录存储（每工作流只留最近 50 条，见 runs 表）
+lib/graph-complete.mjs AI 应用后做**确定性补齐**（watch / 出口 / 负向词），幂等
+lib/migrate-json.mjs 旧 workflows/*.json → SQLite 一次性导入
+lib/sse.mjs          SSE 广播：心跳 + Last-Event-ID 重放
+lib/llm.mjs          LLM 层：图 ops + 提示词优化（OpenAI 兼容，现接 DeepSeek）
+lib/media-tools.mjs  ffmpeg 封装：抽帧 / 探针 / 加边 / 拼接；二进制走 npm，懒加载
+runner.mjs           执行引擎：拓扑排序 + 20 个节点 handler + 失败清理 + 单步运行
+web/src/             前端源码（React + React Flow，Vite 根目录）
+  pages/             Home（分类 + 多画布）/ Editor（画布）；路由见 router.js
+  graph/model.js     **节点唯一扩展点**：类型/端口/字段/校验/LLM schema 全在这
+  components/        Logo / Icons（lucide 统一出口）/ NotificationCenter / SettingsModal / RunPanel
+  i18n.jsx           中英字典（key → [zh, en]）；panels/、nodes/ 均走 labelKey
+  presets.js         13 条剧本预设（双语内容模板，篇幅大，**不进 i18n 字典**）
+  styles.css         设计令牌：**靠色阶分层，不靠边框**
+docs/screenshots/   README 用的界面截图（隔离演示数据生成，**勿放真实画布**）
+public/              前端**构建产物**（gitignore，由 npm run build 生成）
+data/workbench.db    SQLite 库（gitignore；图 / 分类 / 通知 / 运行记录都在这）
+assets/           上传的素材（gitignore；JSON 只存引用不存 base64）
+downloads/        产物落盘（gitignore）
+out/              图像/立绘等手工产物（gitignore）
+config.json       token + baseUrl（gitignore，绝不写入本文件）
+.run/             临时脚本（gitignore）
+```
+
+## 4. 硬约定（改代码前必看）
+
+| 项 | 约束 |
+|---|---|
+| 平台 | 秘塔 H3，`baseUrl=https://metaso.cn/api/minimax`；鉴权 `Authorization: Bearer mk-...` |
+| LLM | `config.json` 的 `llm.{baseUrl,model,apiKey}`，或 `LLM_API_KEY`；OpenAI 兼容协议，DeepSeek，**默认模型 `deepseek-flash`**。**key 永不写进本文件** |
+| `model` | 固定 `MiniMax-H3`，**大小写敏感** |
+| `resolution` / `duration` | resolution **实测 5 档**：`480p` / `512p` / `768P` / `1080p` / `2K`；duration 按分辨率分化：480p~1080p = **4–30**，**2K = 4–15**，整数 |
+| `ratio` | **必填枚举且必须显式传**：`16:9` / `4:3` / `1:1` / `3:4` / `9:16` / `21:9`。**`adaptive` 与“不传”都回 2013**（官方文档写的 adaptive 合法、未传取默认值，实测均不成立） |
+| 再生成 | `/v2/video_regeneration` 只支持 2K，**不传** duration |
+| 再生成入参 | `source_task_id` 与 `content` **恰好一个** |
+| 首尾帧 vs 参考素材 | **互斥**（`web/src/graph/model.js` 的 `PROVIDER.framesVsRef`）。秘塔是否放行**未验证**，暂按互斥保护 |
+| 素材宽高比 | **0.4–2.5 闭区间** |
+| 错误码 `2013` | **通用「参数校验失败」**，不只宽高比；必须看 message 判断是哪个参数 |
+| 素材形式 | base64 data URI 塞 `content`；请求体上限 200MB（`MAX_BODY`） |
+| `aigc_watermark` | 三态：省略 / `true` / 显式 `false` |
+| 提示词 | 负向词必须并进同一条 `text`、放末尾；`runner` 的 `joinTexts` 按 `__negative` 标记分离，正文在前负向词在后。**负向词必须直连 `gen.*`**，经 `text.merge` 会丢标记 |
+| 图唯一真相 | `data/workbench.db` 的 `workflows` 表；写入走 revision 乐观锁，冲突返回 409，**不许静默覆盖**。旧 `workflows/*.json` 只是迁移来源 |
+| 多画布 | 首页列库里的工作流；新建 `POST /api/workflows`（可带 `categoryId`），复制 `POST /api/workflow/:id/duplicate` |
+| 通知 | `notifications` 表（留 200 条）；铃铛 `GET /api/notifications`，运行结束由 `runner` 写 `run.succeeded` / `run.failed` |
+| 运行可视化 | run 落 `runs` 表（每流留 50 条）；`GET /api/runs?wfId=`；`GET /api/run/:id` **内存优先、缺失回落 SQLite**（带 `fromDb`）。运行时订阅 `GET /api/run/:id/events`（SSE：`run:start`/`run:node`/`run:done`），前端轮询只做断线降级 |
+| 节点状态词 | `runner` 发 **`running` / `success` / `error` / `skipped` / `cancelled`**，run 级才是 `succeeded` / `failed`；两套 i18n key 都要在 |
+| AI 改流程 | 模型只负责内容；`POST /api/workflow/:id/ai` 应用后必走 `lib/graph-complete.mjs` 补齐：`gen.* → task.watch → output.preview + output.download`、`gen.video` 缺负向词就补一个。规则单一来源是 `graph/model.js` 的 `FLOW_RULES`（随 `schemaForLLM()` 投影给 LLM）；响应带 `autoFilled` |
+| 单步运行 | `POST /api/run {nodeIds:[id], single:true}` 只跑该节点并复用上次输入输出（不重复计费）；`single:false` 跑该节点及全部上游（重新计费） |
+| AI 优化 | `POST /api/llm/optimize {text, kind}` → `{text, note, original}`；结果先预览，用户点「替换为优化版」才写回节点 |
+| 节点库 | **20 类**；逻辑组 = `logic.condition`（分支门，pass/fail 只活一条）+ `text.merge` + `text.vars`（`{{key}}` 替换，未定义的占位符原样保留） |
+| 媒体处理 | `video.frame`（抽帧，默认取尾帧当下一段首帧）/ `video.concat`（拼接，按连线顺序，**直接落 downloads** 并输出 `/downloads/xxx`，`output.download` 不再抓一遍）/ `image.fit`（比例修正到 0.4–2.5）/ `video.info`（探针）。全经 `lib/media-tools.mjs`，输入可以是 https、`/downloads/xxx` 或 `file:///`，由 `toLocalPath` 归一 |
+| 界面风格 | **边界靠背景色阶区分**（bg → surface-1/2/3/4），只有状态（选中 / 聚焦 / 成功 / 失败）才用描边或光晕；图标一律走 `components/Icons.jsx`，不散落 lucide |
+| 文案 | **UI 文案一律走 `web/src/i18n.jsx`**，节点/字段用 `labelKey`，不许写死语言；首次跟随浏览器语言，缺省中文。篇幅大的内容只好单独建档：剧本预设 → `presets.js`，节点使用说明 → `help.js`（`components/NodeHelp.jsx` 渲染，与 `model.js` 给 LLM 的英文 `doc` 是**两套**，别混） |
+| 运行/干跑 | 同一流同时只允许 **1 个 run**（第二个 409，防重复扣费）；失败自动 DELETE 网关任务（**全额退款**），状态钉在出错节点；`dryRun:true` 只回计划+预估，**不碰网关**；计费按网关单价计算，素材前 5 张免费 |
+| 运行态 / 落盘 | `runNodes` 与 `nodes` 分开，渲染合成 `displayNodes`，运行态永不写回图；下载只在 `output.download` 落地，前端 `afterRun` 不许再下一次 |
+| 剧本预设 | 13 条 / 5 组，正文在 `web/src/presets.js`（{zh,en} 内联）；点一下**只填入输入框**，不自动执行；每条自带五要素（题材/人物/节拍/镜头/时长分辨率+负向词方向） |
+| 建图坐标 | `add_node` 没给坐标（或给 `0,0`）时按网格自动错开；界面拖拽总带真实坐标，这条兜底是给 API / AI 改流程用的，否则新节点全叠在原点、画布上认不出谁是谁 |
+| LLM 输出 | `response_format=json_object` + prompt 必含 json 字样与完整样例；括号配错由 `repairJson` 按报错位置迭代修，**修完必须 parse 通过**才算数；解析失败再重试一次 |
+| LLM 容量 | `config.json` 的 `llm.maxTokens`（默认 64K）/ `llm.contextWindow`（默认 1M）可在设置弹窗改；调用时透传，`usage` 回带 `contextWindow`，AI 面板显示占比、≥80% 变黄告警 |
+| 外部改图 | 一律走 HTTP ops（`/api/workflow/:id/patch`、`/api/workflow/:id/ai`）→ SSE `wf:changed`；编辑器自己的写入带 `X-WB-Origin: editor`，SSE 据此不弹「外部改动」。**不再监听文件** |
+
+## 5. 已知限制（未验证的不硬写）
+
+- 输出视频**是否带音轨未说明**，要声音需后期配；参考视频走 base64 会让请求体很大（长视频改公网 URL）；下载链接带签名会过期，需重查任务拿新链；429 / 503 是限流或渠道满，退避重试即可
+
