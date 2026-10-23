@@ -6,6 +6,7 @@ import SettingsModal from '../components/SettingsModal.jsx';
 import NotificationCenter from '../components/NotificationCenter.jsx';
 import { LogoMark } from '../components/Logo.jsx';
 import { Ic } from '../components/Icons.jsx';
+import { fetchExportZip, saveBlob, safeFileName, importZip, isZip } from '../bundle.js';
 
 function fmt(ts) {
   if (!ts) return '-';
@@ -31,10 +32,15 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [menuId, setMenuId] = useState(null);
+  const [renameTarget, setRenameTarget] = useState(null);   // { id, name } 重命名工作流弹窗
+  const [deleteTarget, setDeleteTarget] = useState(null);   // 工作流对象：删除确认弹窗
   const [editor, setEditor] = useState(null);   // { id?, name, color } 新建/重命名分类
   const [selectMode, setSelectMode] = useState(false);
   const [picked, setPicked] = useState(() => new Set());
   const [moveOpen, setMoveOpen] = useState(false);
+  const [ioBusy, setIoBusy] = useState(false);      // 导入 / 导出进行中
+  const [note, setNote] = useState('');             // 成功类提示，与 err 分开
+  const fileRef = useRef(null);
   const [dragCat, setDragCat] = useState(null);
   const rootRef = useRef(null);
 
@@ -74,12 +80,19 @@ export default function Home() {
     }
   }
 
-  async function rename(it) {
-    const name = window.prompt(t('common.rename'), it.name || '');
-    if (name == null) return;
+  /** 重命名：不用 window.prompt —— 桌面壳（Electron / webview）里 prompt 不弹窗也不返回，点了就像没反应 */
+  function rename(it) {
+    setMenuId(null);
+    setRenameTarget({ id: it.id, name: it.name || it.id });
+  }
+
+  async function saveRename() {
+    const target = renameTarget;
+    if (!target) return;
     try {
-      const saved = await api.saveWorkflow(it.id, { name: name.trim() || it.name }, null);
-      setItems((list) => (list || []).map((x) => (x.id === it.id ? { ...x, name: saved.name } : x)));
+      const saved = await api.saveWorkflow(target.id, { name: target.name.trim() || target.id }, null);
+      setItems((list) => (list || []).map((x) => (x.id === target.id ? { ...x, name: saved.name } : x)));
+      setRenameTarget(null);
       load();
     } catch (e) {
       setErr(e.message);
@@ -96,11 +109,80 @@ export default function Home() {
     }
   }
 
-  async function remove(it) {
-    if (!window.confirm(t('home.deleteConfirm', { name: it.name || it.id }))) return;
+  /** 删除改成自定义确认弹窗，不再用浏览器 confirm */
+  function remove(it) {
+    setMenuId(null);
+    setDeleteTarget(it);
+  }
+
+  /* ── 导入 / 导出（.zip）：素材是包里的真文件，导入一律新建副本 ── */
+  async function exportOne(it) {
+    setMenuId(null);
+    if (ioBusy) return;
+    setIoBusy(true); setErr(''); setNote('');
     try {
-      await api.deleteWorkflow(it.id);
-      setMenuId(null);
+      const blob = await fetchExportZip(it.id);
+      saveBlob(blob, `${safeFileName(it.name || it.id)}.zip`);
+      setNote(t('home.exportDone', { name: it.name || it.id }));
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setIoBusy(false);
+    }
+  }
+
+  async function exportAll() {
+    if (ioBusy) return;
+    setIoBusy(true); setErr(''); setNote('');
+    try {
+      const n = ((await api.workflows()).items || []).length;
+      const blob = await fetchExportZip();
+      saveBlob(blob, `lingxi-workflows-${new Date().toISOString().slice(0, 10)}.zip`);
+      setNote(t('home.exportAllDone', { n }));
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setIoBusy(false);
+    }
+  }
+
+  /** 导入：只收 .zip；服务端解包 → 素材落盘换个新名字 → 每个工作流都新建副本 */
+  async function onFiles(e) {
+    const files = [...(e.target.files || [])];
+    e.target.value = '';              // 允许同一个文件再导一次
+    if (!files.length || ioBusy) return;
+    setIoBusy(true); setErr(''); setNote('');
+    let total = 0;
+    let missing = 0;
+    try {
+      for (const f of files) {
+        if (!isZip(f)) {
+          setErr(t('bundle.err.notZip', { name: f.name }));
+          continue;
+        }
+        try {
+          const res = await importZip(f);
+          total += (res.created || []).length;
+          missing += (res.missingAssets || []).length;
+        } catch (err) {
+          setErr(t(`bundle.err.${err.code || 'badZip'}`));
+        }
+      }
+      if (total) {
+        setNote(t('home.importDone', { n: total }) + (missing ? t('home.importMissing', { n: missing }) : ''));
+        await load();
+      }
+    } finally {
+      setIoBusy(false);
+    }
+  }
+
+  async function doRemove() {
+    const target = deleteTarget;
+    if (!target) return;
+    try {
+      await api.deleteWorkflow(target.id);
+      setDeleteTarget(null);
       load();
     } catch (e) {
       setErr(e.message);
@@ -304,6 +386,13 @@ export default function Home() {
                 </>
               ) : (
                 <>
+                  <button type="button" className="wb-btn" onClick={() => fileRef.current?.click()} disabled={ioBusy}>
+                    <Ic n="upload" size={14} /> {t('home.import')}
+                  </button>
+                  <button type="button" className="wb-btn" onClick={exportAll} disabled={ioBusy || !(items || []).length}>
+                    <Ic n="download" size={14} /> {t('home.exportAll')}
+                  </button>
+                  <input ref={fileRef} type="file" accept=".zip,application/zip" multiple hidden onChange={onFiles} />
                   <button type="button" className="wb-btn" onClick={() => setSelectMode(true)} disabled={!shown.length}>
                     <Ic n="check" size={14} /> {t('home.category.select')}
                   </button>
@@ -316,6 +405,7 @@ export default function Home() {
           </div>
 
           {err && <div className="wb-error">{err}</div>}
+          {note && <div className="wb-home__note">{note}</div>}
 
           {items === null && <div className="wb-empty">{t('common.loading')}</div>}
           {items !== null && shown.length === 0 && (
@@ -361,11 +451,14 @@ export default function Home() {
                       </button>
                       {menuId === it.id && (
                         <div className="wb-menu wb-menu--right">
-                          <button type="button" className="wb-menu__item" onClick={() => { setMenuId(null); rename(it); }}>
+                          <button type="button" className="wb-menu__item" onClick={() => rename(it)}>
                             <Ic n="rename" size={13} /> {t('common.rename')}
                           </button>
                           <button type="button" className="wb-menu__item" onClick={() => duplicate(it)}>
                             <Ic n="duplicate" size={13} /> {t('common.duplicate')}
+                          </button>
+                          <button type="button" className="wb-menu__item" onClick={() => exportOne(it)}>
+                            <Ic n="download" size={13} /> {t('home.export')}
                           </button>
                           <div className="wb-menu__sep" />
                           <button type="button" className="wb-menu__item wb-menu__item--danger" onClick={() => remove(it)}>
@@ -431,6 +524,58 @@ export default function Home() {
       )}
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {/* 重命名工作流（替代 window.prompt：桌面壳里 prompt 不弹，点了没反应） */}
+      {renameTarget && (
+        <div className="wb-modal-mask" onMouseDown={(e) => { if (e.target === e.currentTarget) setRenameTarget(null); }}>
+          <div className="wb-modal wb-modal--sm" role="dialog" aria-modal="true">
+            <div className="wb-modal__head">
+              <strong>{t('home.renameTitle')}</strong>
+              <button type="button" className="wb-icon-btn wb-icon-btn--sm" onClick={() => setRenameTarget(null)} aria-label={t('common.close')}>
+                <Ic n="close" size={14} />
+              </button>
+            </div>
+            <div className="wb-modal__body">
+              <label className="wb-field">
+                <span className="wb-field__label">{t('home.name')}</span>
+                <input
+                  className="wb-input"
+                  autoFocus
+                  value={renameTarget.name}
+                  onFocus={(e) => e.currentTarget.select()}
+                  onChange={(e) => setRenameTarget((v) => ({ ...v, name: e.target.value }))}
+                  onKeyDown={(e) => { if (e.key === 'Enter') saveRename(); if (e.key === 'Escape') setRenameTarget(null); }}
+                />
+              </label>
+            </div>
+            <div className="wb-modal__foot">
+              <button type="button" className="wb-btn" onClick={() => setRenameTarget(null)}>{t('common.cancel')}</button>
+              <button type="button" className="wb-btn wb-btn--primary" onClick={saveRename}>{t('common.save')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 删除工作流：自定义确认弹窗，替代浏览器 confirm */}
+      {deleteTarget && (
+        <div className="wb-modal-mask" onMouseDown={(e) => { if (e.target === e.currentTarget) setDeleteTarget(null); }}>
+          <div className="wb-modal wb-modal--sm" role="dialog" aria-modal="true">
+            <div className="wb-modal__head">
+              <strong>{t('home.deleteTitle')}</strong>
+              <button type="button" className="wb-icon-btn wb-icon-btn--sm" onClick={() => setDeleteTarget(null)} aria-label={t('common.close')}>
+                <Ic n="close" size={14} />
+              </button>
+            </div>
+            <div className="wb-modal__body">
+              <p className="wb-modal__text">{t('home.deleteConfirm', { name: deleteTarget.name || deleteTarget.id })}</p>
+            </div>
+            <div className="wb-modal__foot">
+              <button type="button" className="wb-btn" onClick={() => setDeleteTarget(null)}>{t('common.cancel')}</button>
+              <button type="button" className="wb-btn wb-btn--danger" onClick={doRemove}>{t('common.delete')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

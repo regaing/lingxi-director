@@ -62,6 +62,22 @@ const readW = (key, dflt, min, max) => {
 };
 const writeW = (key, v) => { try { localStorage.setItem(key, String(v)); } catch { /* ignore */ } };
 
+/** 画布视角（平移 + 缩放）按工作流记住，跟左右栏宽度同一套思路：存在 localStorage，不污染图 */
+const MIN_ZOOM = 0.45;
+const MAX_ZOOM = 1.6;
+const DEFAULT_VIEW = { x: 48, y: 64, zoom: 0.78 };
+const viewKey = (id) => `wb.view.${id}`;
+const readView = (id) => {
+  try {
+    const v = JSON.parse(localStorage.getItem(viewKey(id)) || 'null');
+    if (!v || ![v.x, v.y, v.zoom].every((n) => Number.isFinite(n))) return null;
+    return { x: v.x, y: v.y, zoom: Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom)) };
+  } catch { return null; }
+};
+const writeView = (id, v) => {
+  try { localStorage.setItem(viewKey(id), JSON.stringify({ x: Math.round(v.x), y: Math.round(v.y), zoom: Math.round(v.zoom * 1000) / 1000 })); } catch { /* ignore */ }
+};
+
 /** 可拖拽分隔条：拖动改宽，双击复位 */
 function Resizer({ side, width, setWidth, min, max, title }) {
   const moveRef = useRef(null);
@@ -129,6 +145,14 @@ export default function Editor({ id }) {
   const [rightW, setRightW] = useState(() => readW('wb.rightW', 372, RIGHT[0], RIGHT[1]));
 
   const { fitView, screenToFlowPosition, setCenter, getNode } = useReactFlow();
+  /** 进图时的初始视角：上次离开停在哪儿就从哪儿接着看 */
+  const initialView = useMemo(() => readView(id) || DEFAULT_VIEW, [id]);
+  const viewTimerRef = useRef(0);
+  /** 拖动/缩放结束后记一下（延迟 200ms，避免手势中间反复写 localStorage） */
+  const saveView = useCallback((vp) => {
+    clearTimeout(viewTimerRef.current);
+    viewTimerRef.current = setTimeout(() => writeView(id, vp), 200);
+  }, [id]);
   const nodesRef = useRef(nodes);
   const edgesRef = useRef(edges);
   const histRef = useRef({ past: [], future: [] });
@@ -151,7 +175,7 @@ export default function Editor({ id }) {
     clearTimeout(toastRef.current);
     if (text) toastRef.current = setTimeout(() => setToast(''), 2600);
   }, []);
-  useEffect(() => () => clearTimeout(toastRef.current), []);
+  useEffect(() => () => { clearTimeout(toastRef.current); clearTimeout(viewTimerRef.current); }, []);
 
   /* ── 载入 ── */
   useEffect(() => {
@@ -751,7 +775,9 @@ export default function Editor({ id }) {
         <Resizer side="left" width={leftW} setWidth={setLeftW} min={LEFT[0]} max={LEFT[1]} title={t('editor.resizeHint')} />
 
         <div className="wb-canvas" onDrop={onDrop} onDragOver={(e) => e.preventDefault()}>
+          {/* key={id}：换工作流时重建实例，否则 defaultViewport 只认首次挂载，视角回不到该流上次的位置 */}
           <ReactFlow
+            key={id}
             nodes={displayNodes}
             edges={edges}
             nodeTypes={nodeTypes}
@@ -764,11 +790,12 @@ export default function Editor({ id }) {
             onPaneClick={() => setSelId(null)}
             // 用户自己拖动/缩放就关掉「跟随」，别跟他抢视角（程序平移时 movingRef 为真）
             onMoveStart={() => { if (!movingRef.current) setFollow(false); }}
+            onMoveEnd={(_, vp) => saveView(vp)}
             deleteKeyCode={null}
             defaultEdgeOptions={{ type: 'wb', markerEnd: MARKER }}
-            defaultViewport={{ x: 48, y: 64, zoom: 0.78 }}
-            minZoom={0.45}
-            maxZoom={1.6}
+            defaultViewport={initialView}
+            minZoom={MIN_ZOOM}
+            maxZoom={MAX_ZOOM}
             proOptions={{ hideAttribution: true }}
           >
             <Background gap={18} size={1} color="#262633" />
@@ -830,7 +857,7 @@ export default function Editor({ id }) {
 
       {toast && <div className="wb-toast">{toast}</div>}
 
-      {showTasks && <TaskPanel onPreview={(url) => setPreview({ url, autoPlay: true })} onClose={() => setShowTasks(false)} />}
+      {showTasks && <TaskPanel wfId={id} onPreview={(url) => setPreview({ url, autoPlay: true })} onClose={() => setShowTasks(false)} />}
 
       {preview && (
         <div className="wb-preview">

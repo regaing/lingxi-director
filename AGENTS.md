@@ -60,6 +60,7 @@ lib/graph-complete.mjs AI 应用后做**确定性补齐**（watch / 出口 / 负
 lib/sse.mjs          SSE 广播：心跳 + Last-Event-ID 重放
 lib/llm.mjs          LLM 层：图 ops + 提示词优化（OpenAI 兼容，现接 DeepSeek）
 lib/media-tools.mjs  ffmpeg 封装：抽帧 / 探针 / 加边 / 拼接；二进制走 npm，懒加载
+lib/bundle.mjs       导入导出打包：zip（workflows.json + assets/）、素材引用改写、重名加 (2)(3)
 runner.mjs           执行引擎：拓扑排序 + 20 个节点 handler + 失败清理 + 单步运行
 web/src/             前端源码（React + React Flow，Vite 根目录）
   pages/             Home（分类 + 多画布）/ Editor（画布）；路由见 router.js
@@ -96,9 +97,12 @@ config.json       token + baseUrl（gitignore，绝不写入本文件）
 | `aigc_watermark` | 三态：省略 / `true` / 显式 `false` |
 | 提示词 | 负向词必须并进同一条 `text`、放末尾；`runner` 的 `joinTexts` 按 `__negative` 标记分离，正文在前负向词在后。**负向词必须直连 `gen.*`**，经 `text.merge` 会丢标记 |
 | 图唯一真相 | `data/workbench.db` 的 `workflows` 表；写入走 revision 乐观锁，冲突返回 409，**不许静默覆盖** |
+| PUT 语义 | `PUT /api/workflow/:id` 是**整体替换**：body 里没带 `nodes`/`edges` 时服务端沿用原图，没带 `name` 时沿用原名（首页重命名只传 `{name}` 就走这条，别再让它清空节点）；要清空必须显式传 `nodes: []` |
 | 多画布 | 首页列库里的工作流；新建 `POST /api/workflows`（可带 `categoryId`），复制 `POST /api/workflow/:id/duplicate` |
 | 通知 | `notifications` 表（留 200 条）；铃铛 `GET /api/notifications`，运行结束由 `runner` 写 `run.succeeded` / `run.failed` |
 | 运行可视化 | run 落 `runs` 表（每流留 50 条）；`GET /api/runs?wfId=`；`GET /api/run/:id` **内存优先、缺失回落 SQLite**（带 `fromDb`）。运行时订阅 `GET /api/run/:id/events`（SSE：`run:start`/`run:node`/`run:done`），前端轮询只做断线降级 |
+| 任务列表 | `GET /api/tasks` 透传网关任务列表；带 `wfId` 时只回该流的任务——网关任务**没有 wf 字段**，靠 `runs.outputs` 里的 `task_id` + 图里 `task.source` 的 `taskId` 反查过滤（所以超出「每流 50 条 run」或 7 天保留期的任务查不到） |
+| 导入导出 | `.zip` 包：`workflows.json` + `assets/<文件>`（素材是真实文件，**不塞 base64**）；`GET /api/export[?wfId=]` 导出单个/全库，`POST /api/import` 收原始 zip（不走 JSON 体）。导入**永远**新建副本，素材落盘换新文件名并重写节点引用，重名加 (2)(3)。zip 用 npm 的 `fflate`（纯 JS，无二进制下载） |
 | 节点状态词 | `runner` 发 **`running` / `success` / `error` / `skipped` / `cancelled`**，run 级才是 `succeeded` / `failed`；两套 i18n key 都要在 |
 | AI 改流程 | 模型只负责内容；`POST /api/workflow/:id/ai` 应用后必走 `lib/graph-complete.mjs` 补齐：`gen.* → task.watch → output.preview + output.download`、`gen.video` 缺负向词就补一个。规则单一来源是 `graph/model.js` 的 `FLOW_RULES`（随 `schemaForLLM()` 投影给 LLM）；响应带 `autoFilled` |
 | 单步运行 | `POST /api/run {nodeIds:[id], single:true}` 只跑该节点并复用上次输入输出（不重复计费）；`single:false` 跑该节点及全部上游（重新计费） |
@@ -106,8 +110,10 @@ config.json       token + baseUrl（gitignore，绝不写入本文件）
 | 节点库 | **20 类**；逻辑组 = `logic.condition`（分支门，pass/fail 只活一条）+ `text.merge` + `text.vars`（`{{key}}` 替换，未定义的占位符原样保留） |
 | 媒体处理 | `video.frame`（抽帧，默认取尾帧当下一段首帧）/ `video.concat`（拼接，按连线顺序，**直接落 downloads** 并输出 `/downloads/xxx`，`output.download` 不再抓一遍）/ `image.fit`（比例修正到 0.4–2.5）/ `video.info`（探针）。全经 `lib/media-tools.mjs`，输入可以是 https、`/downloads/xxx` 或 `file:///`，由 `toLocalPath` 归一 |
 | 界面风格 | **边界靠背景色阶区分**（bg → surface-1/2/3/4），只有状态（选中 / 聚焦 / 成功 / 失败）才用描边或光晕；图标一律走 `components/Icons.jsx`，不散落 lucide |
+| 内部滚动 | 主区三栏都是 flex；凡是「自己滚」的子项（`.wb-dock` / `.wb-inspector` / `.wb-runpanel` / `.wb-sidebar`）必须带 `min-height: 0`，否则按内容撑高、变成整页滚动 |
 | 文案 | **UI 文案一律走 `web/src/i18n.jsx`**，节点/字段用 `labelKey`，不许写死语言；首次跟随浏览器语言，缺省中文。篇幅大的内容只好单独建档：剧本预设 → `presets.js`，节点使用说明 → `help.js`（`components/NodeHelp.jsx` 渲染，与 `model.js` 给 LLM 的英文 `doc` 是**两套**，别混） |
 | 变更记录 | 功能/接口/行为有实质改动时同步 `CHANGELOG.md`（Keep a Changelog 结构 + 中文正文，小标题用 Added/Changed/Fixed/Removed/Docs）；发版时把 `Unreleased` 归档成版本段并同步 `package.json` 版本号 |
+| 弹窗 | 一律用页内的 `wb-modal`（mask + head/body/foot），**禁用 `window.prompt/confirm/alert`**：桌面壳里 `prompt` 既不弹窗也不返回，点了像没反应 |
 | 运行/干跑 | 同一流同时只允许 **1 个 run**（第二个 409，防重复扣费）；失败自动 DELETE 网关任务（**全额退款**），状态钉在出错节点；`dryRun:true` 只回计划+预估，**不碰网关**；计费按网关单价计算，素材前 5 张免费 |
 | 运行态 / 落盘 | `runNodes` 与 `nodes` 分开，渲染合成 `displayNodes`，运行态永不写回图；下载只在 `output.download` 落地，前端 `afterRun` 不许再下一次 |
 | 剧本预设 | 13 条 / 5 组，正文在 `web/src/presets.js`（{zh,en} 内联）；点一下**只填入输入框**，不自动执行；每条自带五要素（题材/人物/节拍/镜头/时长分辨率+负向词方向） |

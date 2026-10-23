@@ -1,7 +1,7 @@
 {
   "name": "lingxi-director",
   "type": "module",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "MiniMax-H3 视频生成工作台（节点画布工作流，直连秘塔）",
   "license": "MIT",
   "engines": {
@@ -25,6 +25,7 @@
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@ffprobe-installer/ffprobe": "^2.1.2",
     "@xyflow/react": "^12.3.5",
+    "fflate": "^0.8.3",
     "lucide-react": "^1.61.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

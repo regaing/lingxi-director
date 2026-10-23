@@ -4,7 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 
 const D = {
   'app.name': ['灵动导演台', 'LingXi Director'],
-  'app.tagline': ['节点画布 · 秘塔 H3', 'Node Canvas · Metaso H3'],
+  'app.tagline': ['节点画布 · 本地 AI 视频工作台', 'Node Canvas Workbench'],
 
   'nav.home': ['首页', 'Home'],
   'nav.lang': ['EN', '中文'],
@@ -40,6 +40,22 @@ const D = {
   'home.deleteConfirm': ['确定删除「{{name}}」？此操作不可恢复。', 'Delete "{{name}}"? This cannot be undone.'],
   'home.newName': ['新工作流', 'New workflow'],
   'home.card.menu': ['更多', 'More'],
+  'home.renameTitle': ['重命名工作流', 'Rename workflow'],
+  'home.name': ['工作流名称', 'Workflow name'],
+  'home.deleteTitle': ['删除工作流', 'Delete workflow'],
+
+  /* 导入导出（.zip：workflows.json + assets/ 真文件），工作流只新建副本 */
+  'home.import': ['导入', 'Import'],
+  'home.export': ['导出', 'Export'],
+  'home.exportAll': ['导出全部', 'Export all'],
+  'home.exportDone': ['已导出「{{name}}」', 'Exported {{name}}'],
+  'home.exportAllDone': ['已导出 {{n}} 个工作流', 'Exported {{n}} workflows'],
+  'home.importDone': ['已导入 {{n}} 个工作流', 'Imported {{n}} workflows'],
+  'home.importMissing': ['，{{n}} 个素材没能带上', ', {{n}} assets missing'],
+  'bundle.err.notZip': ['「{{name}}」不是 .zip 包，只能导入导出的 zip', 'Not a .zip bundle: {{name}}'],
+  'bundle.err.badZip': ['这个 zip 解不开（可能已损坏）', 'The zip cannot be opened'],
+  'bundle.err.badMeta': ['zip 里缺少 workflows.json，不是导演台导出包', 'workflows.json missing — not a director bundle'],
+  'bundle.err.empty': ['包里没有工作流', 'No workflows in this bundle'],
 
   /* 分类：一部剧一个分类 */
   'home.categories': ['分类', 'Categories'],

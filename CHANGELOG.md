@@ -8,9 +8,32 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-23
+
+首页交互打磨 + 工作流导入导出。
+
 ### Added
 
-- 暂无
+- 首页工作流卡片新增**重命名弹窗**与**删除确认弹窗**，均为应用内模态框（`wb-modal`），替代浏览器原生 `prompt` / `confirm`
+- 新增 i18n 键 `home.renameTitle` / `home.name` / `home.deleteTitle`
+- 画布视角记忆：平移 + 缩放按工作流分别记住（localStorage `wb.view.<wfId>`），重进/刷新回到上次停的位置；`ReactFlow` 加 `key={wfId}`，否则换流时 `defaultViewport` 不重新生效
+- 首页工作流**导入 / 导出（.zip）**：包内是 `workflows.json` + `assets/<文件>`（素材原文件，不走 base64）；卡片菜单导出单个，工具栏「导出全部」导出全库含分类；导入只收 zip，素材落回 `assets/` 换新文件名并重写节点引用，工作流一律新建副本、重名加 (2)(3)。服务端 `GET /api/export[?wfId=]` + `POST /api/import`，zip 用 npm 的 `fflate`
+
+### Changed
+
+- `.wb-modal__foot` 按钮改为右对齐（`justify-content: flex-end`），与「取消 / 确认」的常规位置一致；新增 `.wb-modal__text` 用于弹窗正文
+- 卡片「更多」菜单里的重命名不再自己关菜单，统一由 `rename()` 收口
+- 通知列表相邻项之间加 5px 间距：未读项带底色，原来紧贴会连成一整块，看不出是一条条消息
+- 任务浮层：标题栏的刷新改成图标按钮，与关闭按钮一起靠右（关闭在最右）；任务只列**当前工作流**的——`GET /api/tasks?wfId=` 用 `runs.outputs` 的 `task_id` 反查过滤
+- toast 从底部居中改到**顶部居中**（`top: 66px`，避开 54px 顶栏），入场动画改为从上方滑入（新增 `wb-toast-in`，自带 `translateX(-50%)` 保证居中不被动画位移破坏）
+
+### Fixed
+
+- 修复首页工作流卡片「重命名」点击无反应：原实现用 `window.prompt`，在桌面壳（Electron / webview）里既不弹窗也不返回，改为状态驱动的输入弹窗，支持 Enter 保存、Esc 取消、聚焦全选
+- 工作流删除不再弹浏览器 `confirm`，改用自定义确认弹窗（危险按钮红色），取消/确认行为均已验证
+- **修复重命名后节点全部消失**：`PUT /api/workflow/:id` 是整体替换，首页重命名只传 `{ name }` 时把 `nodes` / `edges` 一起清空了。服务端改为：body 没带 `nodes`/`edges` 就沿用原图，没带 `name` 就沿用原名；要清空必须显式传 `nodes: []`
+- 右侧「结果 / 参数」面板内容变高时不再把整页顶长：`.wb-dock` / `.wb-inspector` / `.wb-runpanel` 补 `min-height: 0`，超出部分改为面板内部滚动
+- 校验误报「「gen.video」需要连接至少一个非空 text」：`text.merge` / `text.vars` 是**透传**节点（自身无 `text` 字段），原校验只看直连节点就判空。现在顺着连线回溯上游，与 runner 的实际取值语义一致（含环路保护）
 
 ## [0.2.0] - 2026-10-23
 
@@ -50,5 +73,6 @@
 
 ---
 
-[Unreleased]: https://github.com/regaing/lingxi-director/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/regaing/lingxi-director/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/regaing/lingxi-director/releases/tag/v0.3.0
 [0.2.0]: https://github.com/regaing/lingxi-director/releases/tag/v0.2.0

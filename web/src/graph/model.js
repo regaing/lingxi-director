@@ -285,9 +285,20 @@ export function validateGraph(nodes, edges) {
   const incoming = (id, handle) =>
     edges.filter((e) => e.target === id && (!handle || e.targetHandle === handle)).map((e) => byId.get(e.source)).filter(Boolean);
 
+  // 文本是「流」出来的：text.merge / text.vars 自身没有 text 字段，文本靠上游喂进来。
+  // 校验若只看直连节点，这类透传节点就会被误判成「没有非空 text」，所以要顺着连线回溯。
+  const PASS_TEXT = new Set(['text.merge', 'text.vars']);
+  const hasText = (n, seen = new Set()) => {
+    if (!n) return false;
+    if (n.data?.text?.trim()) return true;
+    if (!PASS_TEXT.has(n.type) || seen.has(n.id)) return false;
+    const next = new Set(seen).add(n.id);
+    return incoming(n.id, 'text').some((s) => hasText(s, next));
+  };
+
   for (const n of nodes) {
     if (n.type?.startsWith('gen.') && n.type !== 'gen.regen') {
-      const texts = incoming(n.id, 'text').filter((s) => s.data?.text?.trim());
+      const texts = incoming(n.id, 'text').filter((s) => hasText(s));
       if (!texts.length) out.push({ key: 'validate.noText', vars: { node: n.type } });
     }
     if (n.type === 'gen.video') {
@@ -296,8 +307,8 @@ export function validateGraph(nodes, edges) {
     }
     if (n.type === 'gen.regen') {
       const hasSrc = incoming(n.id, 'task_id').length > 0;
-      const hasText = incoming(n.id, 'text').some((s) => s.data?.text?.trim());
-      if (hasSrc && hasText) out.push({ key: 'validate.noParam', vars: { node: n.type, field: 'source_task_id XOR content' } });
+      const hasBody = incoming(n.id, 'text').some((s) => hasText(s));
+      if (hasSrc && hasBody) out.push({ key: 'validate.noParam', vars: { node: n.type, field: 'source_task_id XOR content' } });
     }
     if (n.type === 'param.video') {
       const res = n.data?.resolution;

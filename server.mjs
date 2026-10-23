@@ -25,6 +25,7 @@ import { openDb } from './lib/db.mjs';
 import { createNotificationStore } from './lib/notifications.mjs';
 import { createRunStore } from './lib/runs.mjs';
 import { completeGraph } from './lib/graph-complete.mjs';
+import { packBundle, unpackBundle, importBundle, safeFileName } from './lib/bundle.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -68,9 +69,11 @@ const MIME = {
 };
 
 class HttpError extends Error {
-  constructor(status, message) {
+  /** code 是给前端翻译用的错误码（如导入包的 badZip）；message 只当技术信息看 */
+  constructor(status, message, code) {
     super(message);
     this.status = status;
+    if (code) this.code = code;
   }
 }
 
@@ -188,6 +191,25 @@ function readBody(req) {
         reject(new HttpError(400, '请求体不是合法 JSON'));
       }
     });
+    req.on('error', reject);
+  });
+}
+
+/** 二进制体（导入 .zip 用）：不走 JSON 解析 */
+function readRaw(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on('data', (c) => {
+      size += c.length;
+      if (size > MAX_BODY) {
+        reject(new HttpError(413, '请求体过大（上限 200MB）'));
+        req.destroy();
+        return;
+      }
+      chunks.push(c);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
   });
 }
@@ -363,6 +385,47 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, result);
   }
 
+  // ── 工作流导出 / 导入（.zip：workflows.json + assets/ 真文件，不走 base64） ──
+  if (url.pathname === '/api/export' && req.method === 'GET') {
+    const wfId = url.searchParams.get('wfId');
+    const cats = new Map(wfStore.listCategories().items.map((c) => [c.id, c.name]));
+    let list;
+    if (wfId) {
+      const g = await wfStore.get(wfId);
+      list = [{ name: g.name, category: cats.get(g.categoryId) || '', nodes: g.nodes, edges: g.edges }];
+    } else {
+      const all = wfStore.list();
+      list = [];
+      for (const it of all) {
+        const g = await wfStore.get(it.id);
+        list.push({ name: g.name, category: cats.get(g.categoryId) || '', nodes: g.nodes, edges: g.edges });
+      }
+    }
+    if (!list.length) throw new HttpError(400, '没有可导出的工作流');
+    const zip = await packBundle(list, ASSETS_DIR);
+    const base = wfId ? safeFileName(list[0].name) : `lingxi-workflows-${new Date().toISOString().slice(0, 10)}`;
+    const filename = `${base}.zip`;
+    res.writeHead(200, {
+      'content-type': 'application/zip',
+      'content-length': zip.length,
+      'content-disposition': `attachment; filename="${encodeURIComponent(filename)}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+    });
+    return res.end(zip);
+  }
+
+  if (url.pathname === '/api/import' && req.method === 'POST') {
+    const buf = await readRaw(req);
+    if (!buf.length) throw new HttpError(400, '请求体为空', 'badZip');
+    let bundle;
+    try {
+      bundle = unpackBundle(buf);
+    } catch (err) {
+      throw new HttpError(400, err.message || '解包失败', err.code || 'badZip');
+    }
+    const result = await importBundle(bundle, { assetsDir: ASSETS_DIR, wfStore, newWfId });
+    return sendJson(res, 200, result);
+  }
+
   // ── 素材上传：base64 → assets/，返回引用（JSON 只存引用，不存 base64） ──
   // ── 读取已上传素材（前端缩略图用）；basename 防目录穿越 ──
   const assetGetMatch = url.pathname.match(/^\/api\/assets\/([^/]+)$/);
@@ -500,15 +563,37 @@ async function handleApi(req, res, url) {
     }
 
     case 'GET /api/tasks': {
+      // wfId 给了就只回这个工作流的任务：网关任务本身没有 wf 字段，用本地线索反查——
+      // 该流 runs 里出现过的 task_id + 图里 task.source 节点引用的 taskId
+      const wfId = url.searchParams.get('wfId');
       const qs = new URLSearchParams();
       for (const [k, v] of url.searchParams) {
+        if (k === 'wfId') continue;
         if (k === 'status' && v) qs.append('filter.status', v);
         else if (k === 'task_type' && v) qs.append('filter.task_type', v);
         else if (k === 'page_num' || k === 'page_size') qs.append(k, v);
       }
-      if (!qs.has('page_size')) qs.set('page_size', '20');
+      if (!qs.has('page_size')) qs.set('page_size', wfId ? '100' : '20');
       const result = await gateway(`/v2/query/video_generation?${qs}`);
-      return sendJson(res, result.status, unwrap(result));
+      const data = unwrap(result);
+      if (!wfId || result.status >= 400) return sendJson(res, result.status, data);
+
+      const ids = new Set();
+      for (const r of runsStore.listByWf(wfId, 50)) {
+        for (const out of Object.values(r.outputs || {})) {
+          const tid = out && typeof out === 'object' ? out.task_id : null;
+          if (tid) ids.add(String(tid));
+        }
+      }
+      try {
+        const g = wfStore.get(wfId);
+        for (const n of g?.nodes || []) {
+          const tid = n?.type === 'task.source' ? n.data?.taskId : null;
+          if (tid) ids.add(String(tid));
+        }
+      } catch { /* 图取不到就只按运行记录过滤 */ }
+      const items = (data.items || []).filter((it) => ids.has(String(it.id)));
+      return sendJson(res, 200, { ...data, items, total: items.length, wfId });
     }
 
     case 'POST /api/download': {
@@ -556,7 +641,7 @@ const server = createServer(async (req, res) => {
   } catch (err) {
     const status = err instanceof HttpError ? err.status : 500;
     if (status >= 500) console.error(`✗ ${req.method} ${url.pathname}`, err);
-    sendJson(res, status, { message: err.message || '服务器内部错误' });
+    sendJson(res, status, { message: err.message || '服务器内部错误', ...(err.code ? { code: err.code } : {}) });
   }
 });
 

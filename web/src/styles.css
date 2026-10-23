@@ -190,6 +190,13 @@ select.wb-input option { background: var(--surface-3); color: var(--text); }
   color: #ff9b8e; font-size: 12px;
 }
 
+/* 成功类提示：与 wb-error 同位置，色调走 ok，只用底色不用描边 */
+.wb-home__note {
+  margin: 10px 0; padding: 9px 12px;
+  background: rgba(52, 211, 153, .12); border-radius: var(--radius-sm);
+  color: #6ee7b7; font-size: 12px;
+}
+
 .wb-empty { padding: 26px 14px; text-align: center; color: var(--text-mute); font-size: 12.5px; }
 .wb-empty--big { padding: 70px 20px; font-size: 13.5px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .wb-empty--center { display: flex; flex-direction: column; align-items: center; gap: 9px; }
@@ -296,9 +303,13 @@ select.wb-input option { background: var(--surface-3); color: var(--text); }
 }
 .wb-home__bar-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 
-.wb-home__search { width: 250px; padding: 0; }
-.wb-home__search .wb-input { height: 32px; }
-.wb-home__search .wb-searchbar__icon { left: 11px; }
+.wb-home__search { width: 250px; }
+/* 注意：这里的容器仍有 10px 左内边距 —— .wb-sidebar__searchbar 的 padding（8px 10px 4px）与 .wb-home__search
+   同权重且定义在文件更后面，会盖掉早先写的 padding: 0。所以图标的 left 要算上这 10px：
+   10（容器内边距）+ 14（图标到输入框左边的距离）= 24；配 padding-left 36 时，图标与文字间距 8px。 */
+.wb-home__search .wb-searchbar__icon { left: 24px; }
+/* 双类名提高权重：否则被后面的 .wb-sidebar__searchbar .wb-input（同权重、更靠后）盖掉 */
+.wb-sidebar__searchbar.wb-home__search .wb-input { height: 30px; padding-left: 36px; }
 
 .wb-home__layout { flex: 1; display: flex; min-height: 0; }
 
@@ -341,16 +352,20 @@ select.wb-input option { background: var(--surface-3); color: var(--text); }
 /* 工作流卡片 */
 .wb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: 14px; }
 
+/* 卡片本身不能 overflow: hidden：右上角菜单是绝对定位、会溢出卡片边界，裁掉就看不到末尾几项。
+   顶部渐变的圆角裁剪交给 .wb-card__thumb 自己做。 */
 .wb-card {
-  position: relative; overflow: hidden;
+  position: relative;
   border-radius: var(--radius-lg); background: var(--surface-2);
   cursor: pointer; transition: transform .16s, background .16s, box-shadow .16s;
 }
-.wb-card:hover { transform: translateY(-2px); background: var(--surface-3); box-shadow: var(--shadow-2); }
+/* 悬停抬层级：否则下一行卡片会盖住弹出的菜单 */
+.wb-card:hover { transform: translateY(-2px); background: var(--surface-3); box-shadow: var(--shadow-2); z-index: 5; }
 .wb-card.is-picked { background: var(--surface-3); box-shadow: inset 0 0 0 2px var(--accent); }
 
 .wb-card__thumb {
-  position: relative; height: 88px;
+  position: relative; height: 88px; overflow: hidden;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   display: flex; align-items: flex-start; justify-content: space-between;
   padding: 13px 14px;
 }
@@ -497,7 +512,7 @@ select.wb-input option { background: var(--surface-3); color: var(--text); }
   color: var(--text-mute); font-size: 12.5px; pointer-events: none;
 }
 
-.wb-dock { flex: 0 0 auto; min-width: 0; display: flex; flex-direction: column; background: var(--surface-1); }
+.wb-dock { flex: 0 0 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--surface-1); }
 
 /* dock 分页：参数 / 结果 */
 .wb-dock__tabs {
@@ -519,7 +534,7 @@ select.wb-input option { background: var(--surface-3); color: var(--text); }
 }
 
 /* 参数面板 */
-.wb-inspector { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.wb-inspector { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .wb-inspector--empty { justify-content: center; }
 
 .wb-inspector__head {
@@ -608,6 +623,8 @@ select.wb-input option { background: var(--surface-3); color: var(--text); }
 .wb-notif__head-actions { margin-left: auto; display: flex; gap: 2px; }
 .wb-notif__list { flex: 1; overflow-y: auto; padding: 0 7px 8px; }
 .wb-notif__item { display: flex; gap: 9px; padding: 9px 9px; border-radius: 9px; transition: background .13s; }
+/* 相邻项留出间距：未读项有底色，紧贴会连成一整块，看不出是一条条消息 */
+.wb-notif__item + .wb-notif__item { margin-top: 5px; }
 .wb-notif__item:hover { background: var(--surface-4); }
 .wb-notif__item.is-unread { background: rgba(124, 108, 240, .1); }
 .wb-notif__dot { width: 7px; height: 7px; flex: 0 0 auto; margin-top: 6px; border-radius: 50%; }
@@ -624,13 +641,18 @@ select.wb-input option { background: var(--surface-3); color: var(--text); }
 .wb-notif__link:hover { color: #c3b8ff; }
 
 /* ── toast ── */
+/* 顶部居中：66px = 顶栏 54 + 12，避开顶栏按钮；入场从上方滑入（自带 translateX 居中，别复用 wb-pop） */
+@keyframes wb-toast-in {
+  from { opacity: 0; transform: translate(-50%, -6px) scale(.98); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
 .wb-toast {
-  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+  position: fixed; left: 50%; top: 66px; transform: translateX(-50%);
   z-index: 90; max-width: 70vw;
   padding: 9px 16px; border-radius: 10px;
   background: var(--surface-4); color: var(--text);
   font-size: 12.5px; box-shadow: var(--shadow-2);
-  animation: wb-pop .16s ease-out;
+  animation: wb-toast-in .16s ease-out;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
@@ -646,6 +668,8 @@ select.wb-input option { background: var(--surface-3); color: var(--text); }
 }
 .wb-tasks__head { display: flex; align-items: center; gap: 9px; padding-bottom: 9px; }
 .wb-tasks__head strong { font-size: 13px; }
+/* 刷新 + 关闭一起推到最右 */
+.wb-tasks__head-actions { margin-left: auto; display: flex; align-items: center; gap: 2px; }
 .wb-tasks__note { padding: 6px 2px; }
 .wb-tasks .wb-empty { padding: 22px 0; }
 .wb-task { display: flex; align-items: center; gap: 9px; padding: 8px 8px; border-radius: 9px; transition: background .13s; }
@@ -688,8 +712,9 @@ select.wb-input option { background: var(--surface-3); color: var(--text); }
 .wb-modal__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 15px 10px; }
 .wb-modal__head strong { font-size: 14px; }
 .wb-modal__body { flex: 1; overflow-y: auto; padding: 4px 15px 8px; }
-.wb-modal__foot { display: flex; align-items: center; gap: 8px; padding: 11px 15px 14px; background: var(--surface-3); }
+.wb-modal__foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 11px 15px 14px; background: var(--surface-3); }
 .wb-modal__note { flex: 1; font-size: 11.5px; color: var(--text-mute); }
+.wb-modal__text { margin: 0 0 6px; font-size: 12.5px; line-height: 1.7; color: var(--text-dim); }
 /* 底栏按钮统一 30px 高：图标按钮默认 32，会和「保存 / 关闭」差一截 */
 .wb-modal__foot .wb-icon-btn { width: 30px; height: 30px; border-radius: 8px; }
 
@@ -842,7 +867,8 @@ select.wb-input option { background: var(--surface-3); color: var(--text); }
 .wb-btn.is-on { background: var(--surface-4); color: var(--text); }
 
 /* ── 结果面板 ── */
-.wb-runpanel { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+/* min-height: 0 必须留：否则 flex 子项按内容高度撑开，内部 __scroll 不滚动、整个页面反而被顶长 */
+.wb-runpanel { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .wb-runpanel--empty { justify-content: center; }
 .wb-runpanel__head {
   flex: 0 0 auto; display: flex; align-items: center; gap: 8px;

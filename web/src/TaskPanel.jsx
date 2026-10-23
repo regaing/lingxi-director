@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { api } from './api.js';
 import { useI18n } from './i18n.jsx';
+import { Ic } from './components/Icons.jsx';
 
 const STATUS_COLOR = {
   succeeded: '#34d399',
@@ -23,7 +24,7 @@ function when(t) {
   return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-export default function TaskPanel({ onPreview, onClose }) {
+export default function TaskPanel({ wfId, onPreview, onClose }) {
   const { t } = useI18n();
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
@@ -31,11 +32,12 @@ export default function TaskPanel({ onPreview, onClose }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
 
+  // 只拉当前工作流的任务（服务端按 runs 里的 task_id 反查过滤）
   const load = useCallback(async () => {
     setBusy(true);
     setErr('');
     try {
-      const r = await api.tasks('?page_size=20');
+      const r = await api.tasks(`?page_size=20${wfId ? `&wfId=${encodeURIComponent(wfId)}` : ''}`);
       setItems(r.items || []);
       setTotal(r.total ?? (r.items || []).length);
     } catch (e) {
@@ -43,7 +45,7 @@ export default function TaskPanel({ onPreview, onClose }) {
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [wfId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -74,8 +76,21 @@ export default function TaskPanel({ onPreview, onClose }) {
       <div className="wb-tasks__head">
         <strong>{t('tasks.title')}</strong>
         <span className="wb-muted">{t('tasks.total', { n: total })}</span>
-        <button type="button" className="wb-btn wb-btn--xs" onClick={load} disabled={busy}>{busy ? t('common.loading') : t('common.refresh')}</button>
-        <button type="button" className="wb-icon-btn" onClick={onClose}>×</button>
+        <div className="wb-tasks__head-actions">
+          <button
+            type="button"
+            className="wb-icon-btn wb-icon-btn--sm"
+            title={busy ? t('common.loading') : t('common.refresh')}
+            aria-label={t('common.refresh')}
+            onClick={load}
+            disabled={busy}
+          >
+            <Ic n="refresh" size={14} className={busy ? 'wb-spin' : undefined} />
+          </button>
+          <button type="button" className="wb-icon-btn wb-icon-btn--sm" title={t('common.close')} aria-label={t('common.close')} onClick={onClose}>
+            <Ic n="close" size={14} />
+          </button>
+        </div>
       </div>
 
       {err && <div className="wb-error">{err}</div>}
