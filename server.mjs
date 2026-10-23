@@ -25,13 +25,11 @@ import { openDb } from './lib/db.mjs';
 import { createNotificationStore } from './lib/notifications.mjs';
 import { createRunStore } from './lib/runs.mjs';
 import { completeGraph } from './lib/graph-complete.mjs';
-import { migrateJsonWorkflows } from './lib/migrate-json.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const DOWNLOAD_DIR = path.join(ROOT, 'downloads');
 const CONFIG_FILE = path.join(ROOT, 'config.json');
-const WORKFLOWS_DIR = path.join(ROOT, 'workflows'); // 只用于导入旧 JSON 与备份
 const ASSETS_DIR = path.join(ROOT, 'assets');
 const DATA_DIR = path.join(ROOT, 'data');
 const DB_FILE = path.join(DATA_DIR, 'workbench.db');
@@ -429,25 +427,6 @@ async function handleApi(req, res, url) {
   }
 
   switch (route) {
-    case 'GET /api/config': {
-      const cfg = await readConfig();
-      const token = cfg.token || process.env.MINIMAX_TOKEN || '';
-      return sendJson(res, 200, {
-        hasToken: Boolean(token),
-        tokenPreview: token ? `${token.slice(0, 4)}****${token.slice(-4)}` : '',
-        apiBase: await getApiBase(),
-        model: MODEL,
-      });
-    }
-
-    case 'POST /api/config': {
-      const { token } = await readBody(req);
-      const cfg = await readConfig();
-      cfg.token = String(token || '').trim();
-      await writeFile(CONFIG_FILE, JSON.stringify(cfg, null, 2), 'utf8');
-      return sendJson(res, 200, { ok: true, hasToken: Boolean(cfg.token) });
-    }
-
     case 'GET /api/settings': {
       const cfg = await readConfig();
       const token = cfg.token || process.env.MINIMAX_TOKEN || '';
@@ -582,17 +561,6 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', async () => {
-  // 旧 JSON 一次性导入（幂等）；导入后 DB 才是唯一真相，不再监听文件
-  try {
-    const m = await migrateJsonWorkflows({ db, store: wfStore, dir: WORKFLOWS_DIR, HttpError });
-    if (!m.skipped) {
-      console.log(`  迁移：导入 ${m.imported} 个工作流${m.backup ? `，旧 JSON 已移到 ${m.backup}` : ''}`);
-      if (m.imported) notifications.add({ kind: 'store.migrated', level: 'info', body: `${m.imported} 个工作流已导入 SQLite` });
-    }
-  } catch (e) {
-    console.warn('  [migrate] 旧 JSON 导入失败：', e.message);
-  }
-
   console.log(`✓ 灵动导演台已启动：http://127.0.0.1:${PORT}`);
   console.log(`  网关：${await getApiBase()}  模型：${MODEL}`);
   console.log(`  数据库：${DB_FILE}（驱动 ${db.driver}）`);

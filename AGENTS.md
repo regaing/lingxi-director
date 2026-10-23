@@ -45,7 +45,6 @@ node server.mjs      # 起服务，等同 npm start
 
 - `npm run dev` 起 Vite（5173，proxy `/api` → 8070），改前端热更新
 - 地址 `http://127.0.0.1:8070`（`PORT` 可改）；**Node >= 22**（`node:sqlite` 内置）；`node server.mjs` 可独立启动，前提 `public/` 有构建产物
-- 首次启动自动把旧 `workflows/*.json` 导入 `data/workbench.db`，原文件移到 `workflows/_imported/`，运行期不再读 JSON
 - 网关地址优先级：`config.json` 的 `baseUrl` > `MINIMAX_BASE_URL` > 内置默认
 - 前端两页走 hash 路由：`#/` 首页（多画布列表）、`#/wf/<id>` 编辑器
 
@@ -58,7 +57,6 @@ lib/workflows.mjs    图存储：CRUD + revision 乐观锁 + 语义化 ops patch
 lib/notifications.mjs 通知存储（只留最近 200 条）
 lib/runs.mjs         运行记录存储（每工作流只留最近 50 条，见 runs 表）
 lib/graph-complete.mjs AI 应用后做**确定性补齐**（watch / 出口 / 负向词），幂等
-lib/migrate-json.mjs 旧 workflows/*.json → SQLite 一次性导入
 lib/sse.mjs          SSE 广播：心跳 + Last-Event-ID 重放
 lib/llm.mjs          LLM 层：图 ops + 提示词优化（OpenAI 兼容，现接 DeepSeek）
 lib/media-tools.mjs  ffmpeg 封装：抽帧 / 探针 / 加边 / 拼接；二进制走 npm，懒加载
@@ -97,7 +95,7 @@ config.json       token + baseUrl（gitignore，绝不写入本文件）
 | 素材形式 | base64 data URI 塞 `content`；请求体上限 200MB（`MAX_BODY`） |
 | `aigc_watermark` | 三态：省略 / `true` / 显式 `false` |
 | 提示词 | 负向词必须并进同一条 `text`、放末尾；`runner` 的 `joinTexts` 按 `__negative` 标记分离，正文在前负向词在后。**负向词必须直连 `gen.*`**，经 `text.merge` 会丢标记 |
-| 图唯一真相 | `data/workbench.db` 的 `workflows` 表；写入走 revision 乐观锁，冲突返回 409，**不许静默覆盖**。旧 `workflows/*.json` 只是迁移来源 |
+| 图唯一真相 | `data/workbench.db` 的 `workflows` 表；写入走 revision 乐观锁，冲突返回 409，**不许静默覆盖** |
 | 多画布 | 首页列库里的工作流；新建 `POST /api/workflows`（可带 `categoryId`），复制 `POST /api/workflow/:id/duplicate` |
 | 通知 | `notifications` 表（留 200 条）；铃铛 `GET /api/notifications`，运行结束由 `runner` 写 `run.succeeded` / `run.failed` |
 | 运行可视化 | run 落 `runs` 表（每流留 50 条）；`GET /api/runs?wfId=`；`GET /api/run/:id` **内存优先、缺失回落 SQLite**（带 `fromDb`）。运行时订阅 `GET /api/run/:id/events`（SSE：`run:start`/`run:node`/`run:done`），前端轮询只做断线降级 |

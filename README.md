@@ -136,7 +136,6 @@ lib/
   notifications.mjs   通知存储（保留最近 200 条）
   runs.mjs            运行记录存储（每工作流保留最近 50 条）
   graph-complete.mjs  应用 AI 结果后的确定性补齐（幂等）
-  migrate-json.mjs    旧 workflows/*.json → SQLite 一次性导入
   sse.mjs             SSE 广播：心跳 + Last-Event-ID 重放
   llm.mjs             LLM 层：图 ops + 提示词优化（OpenAI 兼容）
   media-tools.mjs     ffmpeg 封装：抽帧 / 探针 / 加边 / 拼接
@@ -179,7 +178,6 @@ assets/ downloads/ out/  运行时素材与产出（gitignore）
 | `GET /api/run/:id/events` | SSE：`run:start` / `run:node` / `run:done` |
 | `POST /api/run/:id/cancel` | 取消并清理已创建的网关任务 |
 | `GET/POST /api/settings` | 设置（Token / 网关 / LLM）；key 只回掩码 |
-| `GET/POST /api/config` | 旧接口，仅保留兼容 |
 | `POST /api/generate` | 转发创建任务 |
 | `GET /api/task` · `GET /api/tasks` · `DELETE /api/task` | 任务查询 / 取消 |
 | `POST /api/download` | 拉取产物落盘 |
