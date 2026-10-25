@@ -23,6 +23,13 @@ const CAT_COLORS = ['#7c6cf0', '#3f8fe0', '#2f9e8f', '#d99b3c', '#e0503f', '#c26
 /** 「全部 / 未分类 / 具体分类」的选中态：undefined=全部，null=未分类，字符串=分类 id */
 const isAll = (v) => v === undefined;
 
+/** 侧栏落点标记：全部 / 未分类 用伪 id，真实分类直接用分类 id（写进 data-cat） */
+const DROP_ALL = '__all__';
+const DROP_NONE = '__none__';
+const SCROLL_EDGE = 40;   // 距侧栏顶/底多少像素开始自动滚
+const SCROLL_STEP = 9;    // 每帧滚多少（~60fps 下约 540px/s）
+const FADE_MS = 160;      // 落点淡出时长，与 CSS 的 .16s 对齐
+
 export default function Home() {
   const { t, toggle } = useI18n();
   const [items, setItems] = useState(null);
@@ -46,6 +53,15 @@ export default function Home() {
   const [dragCat, setDragCat] = useState(null);
   const rootRef = useRef(null);
 
+  /* ── 拖拽工作流到分类：与上面「分类排序」的 dragCat 互斥，同一时刻只有一个有值 ── */
+  const [dragWf, setDragWf] = useState(null);         // { ids } 正在拖的工作流；null = 没在拖
+  const [dropHit, setDropHit] = useState(undefined);  // 落点：undefined=无 / null=未分类 / 'cid'=分类
+  const [menuStage, setMenuStage] = useState('main'); // 卡片菜单层级：'main' | 'move'
+  const [leaving, setLeaving] = useState(() => new Set()); // 已移走、正在淡出的卡片 id
+  const noClickRef = useRef(false);                   // 拖动刚结束时忽略 click，防误进画布
+  const ghostRef = useRef(null);                      // 自定义拖影节点，dragEnd 时移除
+  const scrollRef = useRef({ y: 0, raf: 0 });         // 侧栏自动滚动：光标 Y + rAF 句柄
+
   const load = useCallback(async () => {
     try {
       const [wfRes, catRes] = await Promise.all([api.workflows(activeCat), api.categories()]);
@@ -64,7 +80,7 @@ export default function Home() {
   useEffect(() => {
     if (!menuId && !moveOpen) return undefined;
     const onDown = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) { setMenuId(null); setMoveOpen(false); }
+      if (rootRef.current && !rootRef.current.contains(e.target)) { setMenuId(null); setMenuStage('main'); setMoveOpen(false); }
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
@@ -235,20 +251,158 @@ export default function Home() {
     }
   }
 
+  /* ── 拖拽工作流到分类（⇢ 与上面的分类排序是两套互斥的拖拽） ── */
+
+  // 卸载时收尾：不留 rAF 空转、不留拖影节点
+  useEffect(() => () => {
+    stopAutoScroll();
+    ghostRef.current?.remove();
+    ghostRef.current = null;
+  }, []);
+
+  /** 拖影节点：必须已挂进文档并渲染（CSS 把它挪到屏幕外），setDragImage 才拍得到 */
+  function makeDragGhost(name, count) {
+    const el = document.createElement('div');
+    el.className = 'wb-drag-ghost';
+    el.textContent = t('home.category.dragGhost', { name, n: count });
+    document.body.appendChild(el);
+    return el;
+  }
+
+  /** 落点：undefined=空白/无落点 · 'all'=「全部」拒收 · null=未分类 · 字符串=分类 id */
+  function hitCat(e) {
+    const el = e.target?.closest?.('[data-cat]');
+    if (!el) return undefined;
+    const raw = el.dataset.cat;
+    if (raw === DROP_ALL) return 'all';
+    return raw === DROP_NONE ? null : raw;
+  }
+
+  function onCardDragStart(e, it) {
+    // 多选里拖一张 = 整批；拖未选中的卡片 = 只移它自己
+    const ids = picked.has(it.id) && picked.size ? [...picked] : [it.id];
+    setDragWf({ ids });
+    setMenuId(null);
+    setMenuStage('main');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', it.name || it.id);  // Firefox 不在 dragstart 写数据就不启动拖拽
+    if (ids.length > 1) {
+      const ghost = makeDragGhost(it.name || it.id, ids.length);  // 原生快照只有一张，看不出拖的是一批
+      e.dataTransfer.setDragImage(ghost, 18, 18);
+      ghostRef.current = ghost;
+    }
+    noClickRef.current = true;
+  }
+
+  function onCardDragEnd() {
+    setDragWf(null);
+    setDropHit(undefined);
+    stopAutoScroll();
+    ghostRef.current?.remove();
+    ghostRef.current = null;
+    setTimeout(() => { noClickRef.current = false; }, 0);
+  }
+
+  /** dragover 在指针不动时只按 ~350ms 重发，靠它驱动滚动会一顿一顿，所以用 rAF 自己跑 */
+  function startAutoScroll(el) {
+    if (scrollRef.current.raf) return;
+    const tick = () => {
+      const { y } = scrollRef.current;
+      if (y) {
+        const r = el.getBoundingClientRect();
+        if (y - r.top < SCROLL_EDGE) el.scrollTop -= SCROLL_STEP;
+        else if (r.bottom - y < SCROLL_EDGE) el.scrollTop += SCROLL_STEP;
+      }
+      scrollRef.current.raf = requestAnimationFrame(tick);
+    };
+    scrollRef.current.raf = requestAnimationFrame(tick);
+  }
+
+  function stopAutoScroll() {
+    if (scrollRef.current.raf) cancelAnimationFrame(scrollRef.current.raf);
+    scrollRef.current.raf = 0;
+    scrollRef.current.y = 0;
+  }
+
+  /** 侧栏是唯一投放区：靠 data-cat 认人，避免每个分类项各挂一套 handler（子元素会让高亮闪） */
+  function onSideDragOver(e) {
+    if (!dragWf) return;                        // 拖分类排序时走分类项自己的逻辑
+    scrollRef.current.y = e.clientY;
+    startAutoScroll(e.currentTarget);
+    const hit = hitCat(e);
+    if (hit === undefined || hit === 'all') {   // 空白 /「全部」：不 preventDefault → 光标显示禁止符
+      e.dataTransfer.dropEffect = 'none';
+      if (dropHit !== undefined) setDropHit(undefined);
+      return;
+    }
+    e.preventDefault();                         // 只有 preventDefault 过，drop 才会触发
+    e.dataTransfer.dropEffect = 'move';
+    if (dropHit !== hit) setDropHit(hit);       // 逐帧重算，同 id 不触发 setState → 不闪
+  }
+
+  function onSideDragLeave(e) {
+    if (!dragWf) return;
+    if (e.currentTarget.contains(e.relatedTarget)) return;   // 还在侧栏内部（进出子元素）
+    stopAutoScroll();
+    setDropHit(undefined);
+  }
+
+  function onSideDrop(e) {
+    if (!dragWf) return;                        // 分类排序的 drop 交给分类项
+    e.preventDefault();
+    e.stopPropagation();
+    const hit = hitCat(e);
+    const ids = dragWf.ids;
+    setDragWf(null);
+    setDropHit(undefined);
+    stopAutoScroll();
+    if (hit === undefined || hit === 'all') return;
+    moveIdsTo(ids, hit);
+  }
+
+  /** 改归属的唯一实现：已在目标分类的跳过，其余一次性批量提交 */
+  async function moveIdsTo(ids, categoryId) {
+    const cur = (id) => {
+      const it = (items || []).find((x) => x.id === id);
+      return it ? (it.categoryId ?? null) : undefined;
+    };
+    const todo = (ids || []).filter((id) => cur(id) !== (categoryId ?? null));
+    if (!todo.length) return;                   // 原地松手：静默，不发请求不弹提示
+    try {
+      const r = await api.moveWorkflows(todo, categoryId);
+      const n = r.moved ?? todo.length;
+      setPicked(new Set());
+      setNote(categoryId
+        ? t('home.category.dragDone', { n, name: catName(categoryId) })
+        : t('home.category.dragDoneUncat', { n }));
+      setTimeout(() => setNote(''), 2600);
+      // 卡片会从当前视图消失时先淡出，否则瞬消看着像误操作
+      const staysVisible = isAll(activeCat) || (activeCat ?? null) === (categoryId ?? null);
+      if (!staysVisible) {
+        setLeaving(new Set(todo));
+        await new Promise((done) => setTimeout(done, FADE_MS));
+      }
+      await load();
+      setLeaving(new Set());
+    } catch (e) {
+      setErr(e.message);
+      setLeaving(new Set());
+    }
+  }
+
+  /** 卡片菜单里的「移动到分类」 */
+  function moveOne(it, categoryId) {
+    setMenuId(null);
+    setMenuStage('main');
+    moveIdsTo([it.id], categoryId);
+  }
+
   async function movePicked(categoryId) {
     const ids = [...picked];
     if (!ids.length) return;
-    try {
-      const r = await api.moveWorkflows(ids, categoryId);
-      setMoveOpen(false);
-      setPicked(new Set());
-      setSelectMode(false);
-      setErr(t('home.category.moveDone', { n: r.moved ?? ids.length }));
-      setTimeout(() => setErr(''), 2400);
-      load();
-    } catch (e) {
-      setErr(e.message);
-    }
+    setMoveOpen(false);
+    setSelectMode(false);
+    await moveIdsTo(ids, categoryId);
   }
 
   const shown = useMemo(() => {
@@ -271,8 +425,20 @@ export default function Home() {
     });
   }
 
+  // 根节点兜底：卡片拖到页面空白处松手时吞掉默认行为，否则个别引擎会去导航/搜索拖出的 text/plain
   return (
-    <div className="wb-home" ref={rootRef}>
+    <div
+      className="wb-home"
+      ref={rootRef}
+      onDragOver={(e) => { if (dragWf) e.preventDefault(); }}
+      onDrop={(e) => {
+        if (!dragWf) return;
+        e.preventDefault();
+        setDragWf(null);
+        setDropHit(undefined);
+        stopAutoScroll();
+      }}
+    >
       <header className="wb-home__bar">
         <button type="button" className="wb-brand" onClick={() => { setActiveCat(undefined); setQ(''); }} title={t('nav.home')}>
           <LogoMark size={30} />
@@ -299,21 +465,27 @@ export default function Home() {
 
       <div className="wb-home__layout">
         {/* ── 分类侧栏：一部剧一个分类 ── */}
-        <aside className="wb-cats">
+        <aside
+          className="wb-cats"
+          onDragOver={onSideDragOver}
+          onDragLeave={onSideDragLeave}
+          onDrop={onSideDrop}
+        >
           <div className="wb-cats__head">
-            <span>{t('home.categories')}</span>
+            <span>{dragWf ? t('home.category.dragTo') : t('home.categories')}</span>
             <button type="button" className="wb-icon-btn wb-icon-btn--sm" title={t('home.category.new')} onClick={() => setEditor({ name: '', color: CAT_COLORS[cats.items.length % CAT_COLORS.length] })}>
               <Ic n="categoryNew" size={15} />
             </button>
           </div>
 
-          <button type="button" className={`wb-cats__item${isAll(activeCat) ? ' is-on' : ''}`} onClick={() => setActiveCat(undefined)}>
+          {/* 「全部」是纯过滤器，不接受拖放（不给 preventDefault → 光标显示禁止符） */}
+          <button type="button" data-cat={DROP_ALL} className={`wb-cats__item${isAll(activeCat) ? ' is-on' : ''}`} onClick={() => setActiveCat(undefined)}>
             <Ic n="layers" size={14} />
             <span className="wb-cats__name">{t('common.all')}</span>
             <span className="wb-cats__count">{totalCount}</span>
           </button>
 
-          <button type="button" className={`wb-cats__item${activeCat === null ? ' is-on' : ''}`} onClick={() => setActiveCat(null)}>
+          <button type="button" data-cat={DROP_NONE} className={`wb-cats__item${activeCat === null ? ' is-on' : ''}${dragWf && dropHit === null ? ' is-drop' : ''}`} onClick={() => setActiveCat(null)}>
             <Ic n="inbox" size={14} />
             <span className="wb-cats__name">{t('home.uncategorized')}</span>
             <span className="wb-cats__count">{uncatCount}</span>
@@ -323,17 +495,18 @@ export default function Home() {
             {cats.items.map((c) => (
               <div
                 key={c.id}
-                className={`wb-cats__item wb-cats__item--cat${activeCat === c.id ? ' is-on' : ''}${dragCat === c.id ? ' is-dragging' : ''}`}
+                data-cat={c.id}
+                className={`wb-cats__item wb-cats__item--cat${activeCat === c.id ? ' is-on' : ''}${dragCat === c.id ? ' is-dragging' : ''}${dragWf && dropHit === c.id ? ' is-drop' : ''}`}
                 draggable
                 onDragStart={() => setDragCat(c.id)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => dropCat(c.id)}
-                onDragEnd={() => setDragCat(null)}
+                onDragOver={(e) => { if (!dragWf) e.preventDefault(); }}   // 排序需要；拖工作流由侧栏统一处理
+                onDrop={(e) => { if (dragWf) return; e.preventDefault(); e.stopPropagation(); dropCat(c.id); }}
+                onDragEnd={() => { setDragCat(null); setDropHit(undefined); }}
                 onClick={() => setActiveCat(c.id)}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => { if (e.key === 'Enter') setActiveCat(c.id); }}
-                title={t('home.category.dragHint')}
+                title={dragWf ? t('home.category.dragTo') : t('home.category.dragHint')}
               >
                 <span className="wb-cats__dot" style={{ background: c.color }} />
                 <span className="wb-cats__name">{c.name}</span>
@@ -424,14 +597,21 @@ export default function Home() {
             {shown.map((it) => (
               <article
                 key={it.id}
-                className={`wb-card${picked.has(it.id) ? ' is-picked' : ''}`}
-                onClick={() => (selectMode ? togglePick(it.id) : go(`#/wf/${it.id}`))}
+                className={`wb-card${picked.has(it.id) ? ' is-picked' : ''}${dragWf?.ids.includes(it.id) ? ' is-dragging' : ''}${leaving.has(it.id) ? ' is-leaving' : ''}`}
+                draggable
+                onDragStart={(e) => onCardDragStart(e, it)}
+                onDragEnd={onCardDragEnd}
+                onClick={() => {
+                  if (noClickRef.current) return;   // 刚拖完，部分引擎会补发 click
+                  if (selectMode) togglePick(it.id); else go(`#/wf/${it.id}`);
+                }}
               >
                 <div
                   className={`wb-card__thumb${it.thumb ? ' has-img' : ''}`}
                   style={{ '--card-accent': it.categoryId ? catColor(it.categoryId) : 'var(--accent)' }}
                 >
-                  {it.thumb && <img className="wb-card__img" src={it.thumb} alt="" loading="lazy" />}
+                  {/* draggable={false}：图片默认可拖，不关掉就从图上起手变成「拖这张图」 */}
+                  {it.thumb && <img className="wb-card__img" src={it.thumb} alt="" loading="lazy" draggable={false} />}
                   <span className="wb-card__nodes">
                     <Ic n="layers" size={14} /> {it.nodes}
                   </span>
@@ -455,24 +635,56 @@ export default function Home() {
                 {!selectMode && (
                   <div className="wb-card__ops" onClick={(e) => e.stopPropagation()}>
                     <div className="wb-menu-wrap">
-                      <button type="button" className="wb-icon-btn wb-icon-btn--sm" title={t('home.card.menu')} onClick={() => setMenuId((v) => (v === it.id ? null : it.id))}>
+                      <button
+                        type="button"
+                        className="wb-icon-btn wb-icon-btn--sm"
+                        title={t('home.card.menu')}
+                        onClick={() => { setMenuId((v) => (v === it.id ? null : it.id)); setMenuStage('main'); }}
+                      >
                         <Ic n="more" size={15} />
                       </button>
                       {menuId === it.id && (
                         <div className="wb-menu wb-menu--right">
-                          <button type="button" className="wb-menu__item" onClick={() => rename(it)}>
-                            <Ic n="rename" size={13} /> {t('common.rename')}
-                          </button>
-                          <button type="button" className="wb-menu__item" onClick={() => duplicate(it)}>
-                            <Ic n="duplicate" size={13} /> {t('common.duplicate')}
-                          </button>
-                          <button type="button" className="wb-menu__item" onClick={() => exportOne(it)}>
-                            <Ic n="download" size={13} /> {t('home.export')}
-                          </button>
-                          <div className="wb-menu__sep" />
-                          <button type="button" className="wb-menu__item wb-menu__item--danger" onClick={() => remove(it)}>
-                            <Ic n="remove" size={13} /> {t('common.delete')}
-                          </button>
+                          {menuStage === 'move' ? (
+                            <>
+                              <button type="button" className="wb-menu__item wb-menu__back" onClick={() => setMenuStage('main')}>
+                                <Ic n="back" size={13} /> {t('common.back')}
+                              </button>
+                              <div className="wb-menu__sep" />
+                              <button type="button" className="wb-menu__item" onClick={() => moveOne(it, null)}>
+                                <span className="wb-cats__dot" style={{ background: 'var(--line-strong)' }} />
+                                <span className="wb-cats__name">{t('home.uncategorized')}</span>
+                                {!it.categoryId && <Ic n="check" size={13} className="wb-menu__chk is-on" />}
+                              </button>
+                              {cats.items.map((c) => (
+                                <button key={c.id} type="button" className="wb-menu__item" onClick={() => moveOne(it, c.id)}>
+                                  <span className="wb-cats__dot" style={{ background: c.color }} />
+                                  <span className="wb-cats__name">{c.name}</span>
+                                  {it.categoryId === c.id && <Ic n="check" size={13} className="wb-menu__chk is-on" />}
+                                </button>
+                              ))}
+                            </>
+                          ) : (
+                            <>
+                              <button type="button" className="wb-menu__item" onClick={() => rename(it)}>
+                                <Ic n="rename" size={13} /> {t('common.rename')}
+                              </button>
+                              <button type="button" className="wb-menu__item" onClick={() => duplicate(it)}>
+                                <Ic n="duplicate" size={13} /> {t('common.duplicate')}
+                              </button>
+                              <button type="button" className="wb-menu__item" onClick={() => setMenuStage('move')}>
+                                <Ic n="move" size={13} /> {t('home.category.move')}
+                                <Ic n="chevronRight" size={13} className="wb-menu__chk" />
+                              </button>
+                              <button type="button" className="wb-menu__item" onClick={() => exportOne(it)}>
+                                <Ic n="download" size={13} /> {t('home.export')}
+                              </button>
+                              <div className="wb-menu__sep" />
+                              <button type="button" className="wb-menu__item wb-menu__item--danger" onClick={() => remove(it)}>
+                                <Ic n="remove" size={13} /> {t('common.delete')}
+                              </button>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>

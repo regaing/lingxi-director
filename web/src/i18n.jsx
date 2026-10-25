@@ -27,6 +27,7 @@ const D = {
   'common.never': ['从未', 'Never'],
   'common.all': ['全部', 'All'],
   'common.retry': ['重试', 'Retry'],
+  'common.back': ['返回', 'Back'],
 
   'home.title': ['我的工作流', 'My workflows'],
   'home.subtitle': ['按剧分类管理，拖节点搭出流程，也可以让 AI 直接改', 'Organize by show, build pipelines by dragging — or let AI edit them'],
@@ -93,6 +94,10 @@ const D = {
   'home.category.moveDone': ['已移动 {{n}} 个工作流', 'Moved {{n}} workflows'],
   'home.category.needName': ['分类名不能为空', 'Category name is required'],
   'home.category.dragHint': ['拖动可调整顺序', 'Drag to reorder'],
+  'home.category.dragTo': ['拖到左侧分类即可移动', 'Drop on a category to move'],
+  'home.category.dragDone': ['已移动 {{n}} 个到「{{name}}」', 'Moved {{n}} to {{name}}'],
+  'home.category.dragDoneUncat': ['已移到「未分类」：{{n}} 个', 'Moved {{n}} to Uncategorized'],
+  'home.category.dragGhost': ['{{name}} · {{n}} 个', '{{name}} · {{n}} items'],
 
   'editor.validate': ['校验', 'Validate'],
   'editor.estimate': ['预估', 'Estimate'],

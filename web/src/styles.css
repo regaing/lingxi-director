@@ -401,7 +401,9 @@ select.wb-input option { background: var(--surface-3); color: var(--text); }
 .wb-card__body { padding: 11px 14px 13px; }
 .wb-card__body h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wb-card__meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 10.5px; color: var(--text-mute); }
-.wb-card__ops { position: absolute; top: 8px; right: 8px; opacity: 0; transition: opacity .14s; }
+.wb-card__ops { position: absolute; top: 8px; right: 8px; z-index: 3; opacity: 0; transition: opacity .14s; }
+/* 有产物首帧时 .wb-card__edges 被抬到 z-index:2 压住图片遮罩，正好盖住右上角的三点按钮，
+   点击就漏给 .wb-card 的 onClick 直接进画布。ops 必须更高（3）才能吃到点击。 */
 .wb-card:hover .wb-card__ops { opacity: 1; }
 .wb-card__ops .wb-icon-btn { background: rgba(8, 8, 12, .5); }
 
@@ -428,6 +430,48 @@ select.wb-input option { background: var(--surface-3); color: var(--text); }
 .wb-menu__item:hover { background: var(--surface-3); color: var(--text); }
 .wb-menu__item--danger:hover { background: rgba(228, 87, 63, .16); color: #ff9b8e; }
 .wb-menu__sep { height: 1px; margin: 4px 6px; background: var(--line); }
+.wb-menu__back { color: var(--text-mute); }
+.wb-menu__chk { margin-left: auto; flex: 0 0 auto; color: var(--text-mute); }
+.wb-menu__chk.is-on { color: var(--accent); }
+
+/* ── 拖拽工作流到分类 ──
+   只有「可见操作」（拖动中 / 落点）才用描边或光晕，符合本项目分层约定。 */
+
+/* 拖动中的卡片：淡出，让落点更显眼 */
+.wb-card.is-dragging { opacity: .45; }
+
+/* 落点淡出：卡片被移走后先淡出再刷新，避免「瞬间消失」看着像误操作 */
+.wb-card.is-leaving {
+  opacity: 0; transform: scale(.96);
+  transition: opacity .16s ease, transform .16s ease;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wb-card.is-leaving { transform: none; }   /* 只保留透明度变化 */
+}
+
+/* 分类项作为落点 */
+.wb-cats__item.is-drop {
+  background: var(--accent-soft);
+  color: #d6d1ff;
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+/* 落点态不露出改名/删除按钮，防误触；计数保持可见（hover 时会隐藏，这里盖回来） */
+.wb-cats__item.is-drop .wb-cats__ops { display: none; }
+.wb-cats__item.is-drop .wb-cats__count { display: inline; }
+
+/* 多选拖动的自定义拖影：必须「已渲染但不在视口内」——
+   display:none / visibility:hidden / opacity:0 都拍不到，快照会是空白，
+   所以只能靠 fixed 定位把它挪到屏幕外。 */
+.wb-drag-ghost {
+  position: fixed; top: -9999px; left: -9999px;
+  max-width: 220px; padding: 8px 14px; border-radius: 10px;
+  background: var(--surface-4); color: var(--text);
+  font-size: 12.5px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+  box-shadow: var(--shadow-2);
+  border: 1px solid var(--accent);
+}
 
 /* ══════════════ 编辑器 ══════════════ */
 .wb-app, .wb-editor { height: 100%; display: flex; flex-direction: column; background: var(--bg); }

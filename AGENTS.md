@@ -101,6 +101,7 @@ config.json       token + baseUrl（gitignore，绝不写入本文件）
 | 图唯一真相 | `data/workbench.db` 的 `workflows` 表；写入走 revision 乐观锁，冲突返回 409，**不许静默覆盖** |
 | PUT 语义 | `PUT /api/workflow/:id` 是**整体替换**：body 里没带 `nodes`/`edges` 时服务端沿用原图，没带 `name` 时沿用原名（首页重命名只传 `{name}` 就走这条，别再让它清空节点）；要清空必须显式传 `nodes: []` |
 | 多画布 | 首页列库里的工作流；新建 `POST /api/workflows`（可带 `categoryId`），复制 `POST /api/workflow/:id/duplicate` |
+| 拖拽归属 | 首页卡片可拖到左侧分类改归属（侧栏是唯一投放区，`data-cat` 存分类 id，`closest` 认人；`dragWf` 与分类排序的 `dragCat` 互斥）。落库走 `POST /api/workflows/move`，**只改 `category_id`，不动 `updated_at` / `revision`** |
 | 通知 | `notifications` 表（留 200 条）；铃铛 `GET /api/notifications`，运行结束由 `runner` 写 `run.succeeded` / `run.failed` |
 | 运行可视化 | run 落 `runs` 表（每流留 50 条）；`GET /api/runs?wfId=`；`GET /api/run/:id` **内存优先、缺失回落 SQLite**（带 `fromDb`）。运行时订阅 `GET /api/run/:id/events`（SSE：`run:start`/`run:node`/`run:done`），前端轮询只做断线降级 |
 | 任务列表 | `GET /api/tasks` 透传网关任务列表；带 `wfId` 时只回该流的任务——网关任务**没有 wf 字段**，靠 `runs.outputs` 里的 `task_id` + 图里 `task.source` 的 `taskId` 反查过滤（所以超出「每流 50 条 run」或 7 天保留期的任务查不到） |
