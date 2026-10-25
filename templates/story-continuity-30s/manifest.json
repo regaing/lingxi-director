@@ -1,0 +1,77 @@
+{
+  "format": "lingxi-director.template",
+  "version": 1,
+  "provider": "metaso-h3",
+  "name": {
+    "zh": "30 秒连续长片",
+    "en": "30s continuous shot"
+  },
+  "description": {
+    "zh": "生成第一段 → 自动抽尾帧 → 当作第二段的首帧 → 再生成 → 拼接成一条。人物的位置和光线能接上，网页端做不到这件事。",
+    "en": "Generate part 1 → extract its last frame → feed it as the first frame of part 2 → generate → concat. Continuity across shots that no web UI gives you."
+  },
+  "tags": [
+    "多段",
+    "长片",
+    "首尾帧",
+    "杀手级"
+  ],
+  "estimate": {
+    "seconds": 20,
+    "costHint": {
+      "zh": "约 ¥1.8（768P × 20 秒）",
+      "en": "≈ $0.25 (768P × 20s)"
+    }
+  },
+  "params": [
+    {
+      "key": "story",
+      "type": "textarea",
+      "label": {
+        "zh": "这个长片讲什么？",
+        "en": "What happens in the shot?"
+      },
+      "placeholder": {
+        "zh": "留空＝用模板自带的完整文案（第一次建议留空）。自己写时，描述一段有连续位移的动作",
+        "en": "Leave empty to use the built-in prompt (recommended for the first run)"
+      },
+      "target": {
+        "nodeId": "n_prompt",
+        "field": "text"
+      }
+    },
+    {
+      "key": "duration",
+      "type": "number",
+      "min": 4,
+      "max": 30,
+      "default": 10,
+      "label": {
+        "zh": "每段时长（秒）",
+        "en": "Seconds per segment"
+      },
+      "target": {
+        "nodeId": "n_param",
+        "field": "duration"
+      }
+    },
+    {
+      "key": "ratio",
+      "type": "select",
+      "options": [
+        "16:9",
+        "9:16",
+        "1:1"
+      ],
+      "default": "16:9",
+      "label": {
+        "zh": "画幅",
+        "en": "Aspect ratio"
+      },
+      "target": {
+        "nodeId": "n_param",
+        "field": "ratio"
+      }
+    }
+  ]
+}

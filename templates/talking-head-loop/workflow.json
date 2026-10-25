@@ -1,0 +1,167 @@
+{
+  "nodes": [
+    {
+      "id": "n_bg",
+      "type": "media.image",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "role": "reference_image",
+        "assets": [
+          {
+            "asset": "backdrop-placeholder.png"
+          }
+        ]
+      }
+    },
+    {
+      "id": "n_prompt",
+      "type": "text.prompt",
+      "position": {
+        "x": 0,
+        "y": 300
+      },
+      "data": {
+        "text": "一位 30 岁左右的女性主持人在固定的书桌前正面口播，中景，视线看镜头。\n\n背景保持与参考图一致（同样的墙面、同样的书架位置），光线从左上斜射，柔和不刺眼。\n人物动作克制：轻微点头、自然的手势，不要走动、不要换机位。\n画面右上角留出干净区域，方便后续叠字幕。"
+      }
+    },
+    {
+      "id": "n_param",
+      "type": "param.video",
+      "position": {
+        "x": 0,
+        "y": 620
+      },
+      "data": {
+        "duration": 8,
+        "resolution": "1080p",
+        "ratio": "16:9",
+        "watermark": ""
+      }
+    },
+    {
+      "id": "n_gen",
+      "type": "gen.video",
+      "position": {
+        "x": 360,
+        "y": 120
+      },
+      "data": {}
+    },
+    {
+      "id": "n_watch",
+      "type": "task.watch",
+      "position": {
+        "x": 660,
+        "y": 120
+      },
+      "data": {
+        "pollMs": 4,
+        "timeoutMin": 45
+      }
+    },
+    {
+      "id": "n_preview",
+      "type": "output.preview",
+      "position": {
+        "x": 970,
+        "y": 40
+      },
+      "data": {
+        "autoOpen": true,
+        "autoPlay": true,
+        "loop": true
+      }
+    },
+    {
+      "id": "n_download",
+      "type": "output.download",
+      "position": {
+        "x": 970,
+        "y": 280
+      },
+      "data": {
+        "namePrefix": "video",
+        "autoDownload": true
+      }
+    },
+    {
+      "id": "n_neg",
+      "type": "text.negative",
+      "position": {
+        "x": 0,
+        "y": 940
+      },
+      "data": {
+        "text": "blurry, watermark, distorted faces, extra limbs, morphing, flickering, on-screen text, low quality"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "n_bg",
+      "sourceHandle": "image",
+      "target": "n_gen",
+      "targetHandle": "image"
+    },
+    {
+      "id": "e2",
+      "source": "n_prompt",
+      "sourceHandle": "text",
+      "target": "n_gen",
+      "targetHandle": "text"
+    },
+    {
+      "id": "e3",
+      "source": "n_param",
+      "sourceHandle": "duration",
+      "target": "n_gen",
+      "targetHandle": "duration"
+    },
+    {
+      "id": "e4",
+      "source": "n_param",
+      "sourceHandle": "resolution",
+      "target": "n_gen",
+      "targetHandle": "resolution"
+    },
+    {
+      "id": "e5",
+      "source": "n_param",
+      "sourceHandle": "ratio",
+      "target": "n_gen",
+      "targetHandle": "ratio"
+    },
+    {
+      "id": "e6",
+      "source": "n_gen",
+      "sourceHandle": "task_id",
+      "target": "n_watch",
+      "targetHandle": "task_id"
+    },
+    {
+      "id": "e7",
+      "source": "n_watch",
+      "sourceHandle": "video_url",
+      "target": "n_preview",
+      "targetHandle": "video_url"
+    },
+    {
+      "id": "e8",
+      "source": "n_watch",
+      "sourceHandle": "video_url",
+      "target": "n_download",
+      "targetHandle": "video_url"
+    },
+    {
+      "id": "e9",
+      "source": "n_neg",
+      "sourceHandle": "text",
+      "target": "n_gen",
+      "targetHandle": "text"
+    }
+  ]
+}

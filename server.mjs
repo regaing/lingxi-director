@@ -11,7 +11,7 @@
  */
 import { createServer } from 'node:http';
 import { createWriteStream } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, stat } from 'node:fs/promises';
 
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -26,14 +26,18 @@ import { createNotificationStore } from './lib/notifications.mjs';
 import { createRunStore } from './lib/runs.mjs';
 import { completeGraph } from './lib/graph-complete.mjs';
 import { packBundle, unpackBundle, importBundle, safeFileName } from './lib/bundle.mjs';
+import { listTemplates, instantiateTemplate, readTemplateCover, isValidTemplateId } from './lib/templates.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const DOWNLOAD_DIR = path.join(ROOT, 'downloads');
 const CONFIG_FILE = path.join(ROOT, 'config.json');
 const ASSETS_DIR = path.join(ROOT, 'assets');
+const TEMPLATES_DIR = path.join(ROOT, 'templates');
 const DATA_DIR = path.join(ROOT, 'data');
 const DB_FILE = path.join(DATA_DIR, 'workbench.db');
+/** 工作流卡片缩略图（产物首帧），文件名 <wfId>.jpg */
+const THUMBS_DIR = path.join(DATA_DIR, 'thumbs');
 
 const API_BASE_DEFAULT = (process.env.MINIMAX_BASE_URL || 'https://metaso.cn/api/minimax').replace(/\/+$/, '');
 
@@ -99,6 +103,7 @@ const runner = createRunner({
   gateway, unwrap, saveMedia, HttpError, sse, notifications, runsStore,
   assetsDir: ASSETS_DIR,
   downloadDir: DOWNLOAD_DIR,
+  thumbsDir: THUMBS_DIR,
 });
 
 /** 图被改动后推 SSE：编辑器自己保存的标 origin=editor，前端据此不提示「外部改动」 */
@@ -272,7 +277,30 @@ async function handleApi(req, res, url) {
     const categoryId = url.searchParams.has('categoryId')
       ? (url.searchParams.get('categoryId') || null)
       : undefined;
-    return sendJson(res, 200, { items: wfStore.list({ categoryId }) });
+    const items = wfStore.list({ categoryId });
+    // 缩略图（产物首帧）：有就带上，前端据此铺卡片背景；没有就退回色块
+    for (const it of items) {
+      try {
+        await stat(path.join(THUMBS_DIR, `${it.id}.jpg`));
+        it.thumb = `/api/workflows/${encodeURIComponent(it.id)}/thumb`;
+      } catch { /* 没缩略图很正常（没跑过） */ }
+    }
+    return sendJson(res, 200, { items });
+  }
+
+  // 工作流卡片缩略图（产物首帧）。id 走 store 校验过的格式，basename 防穿越
+  const thumbMatch = url.pathname.match(/^\/api\/workflows\/([^/]+)\/thumb$/);
+  if (thumbMatch && req.method === 'GET') {
+    const id = decodeURIComponent(thumbMatch[1]);
+    if (!/^[\w.-]+$/.test(id) || id.includes('..')) throw new HttpError(404, '缩略图不存在', 'noThumb');
+    let data;
+    try {
+      data = await readFile(path.join(THUMBS_DIR, `${id}.jpg`));
+    } catch {
+      throw new HttpError(404, '缩略图不存在', 'noThumb');
+    }
+    res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'public, max-age=300' });
+    return res.end(data);
   }
 
   // 新建空白工作流
@@ -424,6 +452,39 @@ async function handleApi(req, res, url) {
     }
     const result = await importBundle(bundle, { assetsDir: ASSETS_DIR, wfStore, newWfId });
     return sendJson(res, 200, result);
+  }
+
+  // ── 内置模板（templates/ 目录，一个模板 = 一个目录；实例化走 importBundle 复用落盘逻辑） ──
+  if (url.pathname === '/api/templates' && req.method === 'GET') {
+    return sendJson(res, 200, await listTemplates(TEMPLATES_DIR));
+  }
+
+  const tplCoverMatch = url.pathname.match(/^\/api\/templates\/([^/]+)\/cover$/);
+  if (tplCoverMatch && req.method === 'GET') {
+    const id = decodeURIComponent(tplCoverMatch[1]);
+    if (!isValidTemplateId(id)) throw new HttpError(404, '模板不存在', 'noTemplate');
+    const cover = await readTemplateCover(TEMPLATES_DIR, id);
+    if (!cover) throw new HttpError(404, '没有封面', 'noCover');
+    res.writeHead(200, { 'content-type': cover.type, 'cache-control': 'public, max-age=3600' });
+    return res.end(cover.data);
+  }
+
+  const tplUseMatch = url.pathname.match(/^\/api\/templates\/([^/]+)\/instantiate$/);
+  if (tplUseMatch && req.method === 'POST') {
+    const id = decodeURIComponent(tplUseMatch[1]);
+    const body = await readBody(req).catch(() => ({}));
+    try {
+      const result = await instantiateTemplate(id, body || {}, {
+        templatesDir: TEMPLATES_DIR,
+        assetsDir: ASSETS_DIR,
+        wfStore,
+        newWfId,
+      });
+      return sendJson(res, 201, result);
+    } catch (err) {
+      const status = err.code === 'noTemplate' ? 404 : 400;
+      throw new HttpError(status, err.message, err.code || 'badTemplate');
+    }
   }
 
   // ── 素材上传：base64 → assets/，返回引用（JSON 只存引用，不存 base64） ──

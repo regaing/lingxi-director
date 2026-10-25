@@ -17,9 +17,11 @@ data/
 public/
 
 # ---- 运行时落盘（产物 / 上传素材 / 手工产出）----
-downloads/
-assets/
-out/
+# 必须带前导斜杠：裸 `assets/` 会匹配任意层级的 assets 目录，
+# 把 templates/<id>/assets/ 里的模板素材一起忽略掉（模板就不完整了）。
+/downloads/
+/assets/
+/out/
 
 # ---- 旧版 JSON 迁移归档位 ----
 workflows/_imported/
@@ -29,6 +31,7 @@ workflows/_imported/
 npm-debug.log*
 .run/
 tmp/
+.lingxi/
 .tmp/
 
 # ---- 编辑器 / 操作系统 ----

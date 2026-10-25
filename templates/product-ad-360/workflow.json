@@ -1,0 +1,167 @@
+{
+  "nodes": [
+    {
+      "id": "n_img",
+      "type": "media.image",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "role": "first_frame",
+        "assets": [
+          {
+            "asset": "product-sample.jpg"
+          }
+        ]
+      }
+    },
+    {
+      "id": "n_prompt",
+      "type": "text.prompt",
+      "position": {
+        "x": 0,
+        "y": 300
+      },
+      "data": {
+        "text": "以这张产品图作为画面第一帧，镜头从正面缓慢环绕到侧面 45 度，再缓缓推近产品 logo。\n\n影棚级布光：主光左前方柔光箱，右后方冷色轮廓光，背景为渐深灰色。产品全程居中、保持清晰，不要变形、不要改变包装设计。\n结尾 0.5 秒画面轻微收束，给 logo 一个干净的定格。"
+      }
+    },
+    {
+      "id": "n_param",
+      "type": "param.video",
+      "position": {
+        "x": 0,
+        "y": 620
+      },
+      "data": {
+        "duration": 6,
+        "resolution": "1080p",
+        "ratio": "16:9",
+        "watermark": ""
+      }
+    },
+    {
+      "id": "n_gen",
+      "type": "gen.video",
+      "position": {
+        "x": 360,
+        "y": 120
+      },
+      "data": {}
+    },
+    {
+      "id": "n_watch",
+      "type": "task.watch",
+      "position": {
+        "x": 660,
+        "y": 120
+      },
+      "data": {
+        "pollMs": 4,
+        "timeoutMin": 45
+      }
+    },
+    {
+      "id": "n_preview",
+      "type": "output.preview",
+      "position": {
+        "x": 970,
+        "y": 40
+      },
+      "data": {
+        "autoOpen": true,
+        "autoPlay": true,
+        "loop": false
+      }
+    },
+    {
+      "id": "n_download",
+      "type": "output.download",
+      "position": {
+        "x": 970,
+        "y": 260
+      },
+      "data": {
+        "namePrefix": "video",
+        "autoDownload": true
+      }
+    },
+    {
+      "id": "n_neg",
+      "type": "text.negative",
+      "position": {
+        "x": 0,
+        "y": 940
+      },
+      "data": {
+        "text": "blurry, watermark, distorted faces, extra limbs, morphing, flickering, on-screen text, low quality"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "n_img",
+      "sourceHandle": "image",
+      "target": "n_gen",
+      "targetHandle": "image"
+    },
+    {
+      "id": "e2",
+      "source": "n_prompt",
+      "sourceHandle": "text",
+      "target": "n_gen",
+      "targetHandle": "text"
+    },
+    {
+      "id": "e3",
+      "source": "n_param",
+      "sourceHandle": "duration",
+      "target": "n_gen",
+      "targetHandle": "duration"
+    },
+    {
+      "id": "e4",
+      "source": "n_param",
+      "sourceHandle": "resolution",
+      "target": "n_gen",
+      "targetHandle": "resolution"
+    },
+    {
+      "id": "e5",
+      "source": "n_param",
+      "sourceHandle": "ratio",
+      "target": "n_gen",
+      "targetHandle": "ratio"
+    },
+    {
+      "id": "e6",
+      "source": "n_gen",
+      "sourceHandle": "task_id",
+      "target": "n_watch",
+      "targetHandle": "task_id"
+    },
+    {
+      "id": "e7",
+      "source": "n_watch",
+      "sourceHandle": "video_url",
+      "target": "n_preview",
+      "targetHandle": "video_url"
+    },
+    {
+      "id": "e8",
+      "source": "n_watch",
+      "sourceHandle": "video_url",
+      "target": "n_download",
+      "targetHandle": "video_url"
+    },
+    {
+      "id": "e9",
+      "source": "n_neg",
+      "sourceHandle": "text",
+      "target": "n_gen",
+      "targetHandle": "text"
+    }
+  ]
+}

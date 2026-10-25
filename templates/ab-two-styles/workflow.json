@@ -1,0 +1,271 @@
+{
+  "nodes": [
+    {
+      "id": "n_promptA",
+      "type": "text.prompt",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "text": "一只白鹭站在晨雾的浅水里，画面极简，大面积留白，冷青色调，胶片颗粒，安静克制，像日本电影的空镜。"
+      }
+    },
+    {
+      "id": "n_promptB",
+      "type": "text.prompt",
+      "position": {
+        "x": 0,
+        "y": 280
+      },
+      "data": {
+        "text": "一只白鹭站在晨雾的浅水里，阳光从侧面打透雾气，暖金色调，高对比，镜头缓慢横移，戏剧感强。"
+      }
+    },
+    {
+      "id": "n_paramA",
+      "type": "param.video",
+      "position": {
+        "x": 0,
+        "y": 560
+      },
+      "data": {
+        "duration": 5,
+        "resolution": "768P",
+        "ratio": "16:9",
+        "watermark": ""
+      }
+    },
+    {
+      "id": "n_paramB",
+      "type": "param.video",
+      "position": {
+        "x": 0,
+        "y": 800
+      },
+      "data": {
+        "duration": 5,
+        "resolution": "768P",
+        "ratio": "16:9",
+        "watermark": ""
+      }
+    },
+    {
+      "id": "n_genA",
+      "type": "gen.video",
+      "position": {
+        "x": 360,
+        "y": -40
+      },
+      "data": {}
+    },
+    {
+      "id": "n_watchA",
+      "type": "task.watch",
+      "position": {
+        "x": 660,
+        "y": -40
+      },
+      "data": {
+        "pollMs": 4,
+        "timeoutMin": 45
+      }
+    },
+    {
+      "id": "n_genB",
+      "type": "gen.video",
+      "position": {
+        "x": 360,
+        "y": 300
+      },
+      "data": {}
+    },
+    {
+      "id": "n_watchB",
+      "type": "task.watch",
+      "position": {
+        "x": 660,
+        "y": 300
+      },
+      "data": {
+        "pollMs": 4,
+        "timeoutMin": 45
+      }
+    },
+    {
+      "id": "n_previewA",
+      "type": "output.preview",
+      "position": {
+        "x": 970,
+        "y": -120
+      },
+      "data": {
+        "autoOpen": true,
+        "autoPlay": true,
+        "loop": false
+      }
+    },
+    {
+      "id": "n_downloadA",
+      "type": "output.download",
+      "position": {
+        "x": 970,
+        "y": 100
+      },
+      "data": {
+        "namePrefix": "style-a",
+        "autoDownload": true
+      }
+    },
+    {
+      "id": "n_previewB",
+      "type": "output.preview",
+      "position": {
+        "x": 970,
+        "y": 320
+      },
+      "data": {
+        "autoOpen": true,
+        "autoPlay": true,
+        "loop": false
+      }
+    },
+    {
+      "id": "n_downloadB",
+      "type": "output.download",
+      "position": {
+        "x": 970,
+        "y": 540
+      },
+      "data": {
+        "namePrefix": "style-b",
+        "autoDownload": true
+      }
+    },
+    {
+      "id": "n_neg",
+      "type": "text.negative",
+      "position": {
+        "x": 0,
+        "y": 1080
+      },
+      "data": {
+        "text": "blurry, watermark, distorted faces, extra limbs, morphing, flickering, on-screen text, low quality"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "n_promptA",
+      "sourceHandle": "text",
+      "target": "n_genA",
+      "targetHandle": "text"
+    },
+    {
+      "id": "e2",
+      "source": "n_paramA",
+      "sourceHandle": "duration",
+      "target": "n_genA",
+      "targetHandle": "duration"
+    },
+    {
+      "id": "e3",
+      "source": "n_paramA",
+      "sourceHandle": "resolution",
+      "target": "n_genA",
+      "targetHandle": "resolution"
+    },
+    {
+      "id": "e4",
+      "source": "n_paramA",
+      "sourceHandle": "ratio",
+      "target": "n_genA",
+      "targetHandle": "ratio"
+    },
+    {
+      "id": "e5",
+      "source": "n_genA",
+      "sourceHandle": "task_id",
+      "target": "n_watchA",
+      "targetHandle": "task_id"
+    },
+    {
+      "id": "e6",
+      "source": "n_watchA",
+      "sourceHandle": "video_url",
+      "target": "n_previewA",
+      "targetHandle": "video_url"
+    },
+    {
+      "id": "e7",
+      "source": "n_watchA",
+      "sourceHandle": "video_url",
+      "target": "n_downloadA",
+      "targetHandle": "video_url"
+    },
+    {
+      "id": "e8",
+      "source": "n_promptB",
+      "sourceHandle": "text",
+      "target": "n_genB",
+      "targetHandle": "text"
+    },
+    {
+      "id": "e9",
+      "source": "n_paramB",
+      "sourceHandle": "duration",
+      "target": "n_genB",
+      "targetHandle": "duration"
+    },
+    {
+      "id": "e10",
+      "source": "n_paramB",
+      "sourceHandle": "resolution",
+      "target": "n_genB",
+      "targetHandle": "resolution"
+    },
+    {
+      "id": "e11",
+      "source": "n_paramB",
+      "sourceHandle": "ratio",
+      "target": "n_genB",
+      "targetHandle": "ratio"
+    },
+    {
+      "id": "e12",
+      "source": "n_genB",
+      "sourceHandle": "task_id",
+      "target": "n_watchB",
+      "targetHandle": "task_id"
+    },
+    {
+      "id": "e13",
+      "source": "n_watchB",
+      "sourceHandle": "video_url",
+      "target": "n_previewB",
+      "targetHandle": "video_url"
+    },
+    {
+      "id": "e14",
+      "source": "n_watchB",
+      "sourceHandle": "video_url",
+      "target": "n_downloadB",
+      "targetHandle": "video_url"
+    },
+    {
+      "id": "e15",
+      "source": "n_neg",
+      "sourceHandle": "text",
+      "target": "n_genA",
+      "targetHandle": "text"
+    },
+    {
+      "id": "e16",
+      "source": "n_neg",
+      "sourceHandle": "text",
+      "target": "n_genB",
+      "targetHandle": "text"
+    }
+  ]
+}

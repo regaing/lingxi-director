@@ -47,6 +47,11 @@ export const api = {
   patchWorkflow: (id, ops) => request(`/api/workflow/${enc(id)}/patch`, { method: 'POST', body: { ops }, headers: FROM_UI }),
   moveWorkflows: (ids, categoryId) => request('/api/workflows/move', { method: 'POST', body: { ids, categoryId } }),
 
+  /* 内置模板（templates/ 目录） */
+  templates: () => request('/api/templates'),
+  useTemplate: (id, payload) =>
+    request(`/api/templates/${enc(id)}/instantiate`, { method: 'POST', body: payload || {} }),
+
   /* AI 改流程 / AI 优化提示词 */
   aiEdit: (id, instruction, schema, dryRun = false) =>
     request(`/api/workflow/${enc(id)}/ai`, { method: 'POST', body: { instruction, schema, dryRun }, headers: FROM_UI }),

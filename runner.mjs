@@ -13,7 +13,7 @@ import { readFile, copyFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   makeWorkDir, cleanDir, downloadTo, extractFrame, fitImage, concatVideos,
-  probe, toDataUri, dataUriToFile, toLocalPath,
+  probe, toDataUri, dataUriToFile, toLocalPath, saveThumb,
 } from './lib/media-tools.mjs';
 
 const TERMINAL = ['succeeded', 'failed', 'cancelled'];
@@ -94,7 +94,7 @@ function parseVarPairs(raw) {
   return map;
 }
 
-export function createRunner({ gateway, unwrap, saveMedia, HttpError, sse, assetsDir, downloadDir, notifications, runsStore }) {
+export function createRunner({ gateway, unwrap, saveMedia, HttpError, sse, assetsDir, downloadDir, thumbsDir, notifications, runsStore }) {
   const runs = new Map();      // runId -> run 状态
   const activeByWf = new Map(); // wfId -> runId
   /** wfId -> Map(nodeId -> 上次成功输出)：单步运行拿它当上游输入，不重跑、不重复扣费 */
@@ -125,6 +125,35 @@ export function createRunner({ gateway, unwrap, saveMedia, HttpError, sse, asset
 
   function notify(payload) {
     try { notifications?.add(payload); } catch { /* 通知写失败不能影响运行 */ }
+  }
+
+  /**
+   * 给工作流卡片留一张缩略图（产物首帧）。
+   * 优先本地已落盘的文件（output.download / video.concat 都在 downloads/），
+   * 其次才用 CDN 链接——签名会过期，所以只在 run 成功那一刻抽一次。
+   * **失败必须静默**：缩略图不该让一次成功的运行变成失败。
+   */
+  async function makeThumb(run) {
+    if (!thumbsDir || run.dryRun) return;
+    const outs = Object.values(run.outputs || {}).filter((o) => o && typeof o === 'object');
+    let source = null;
+    // 1) 本地文件（downloads/ 下）
+    for (const o of outs) {
+      const f = o.file;
+      if (typeof f === 'string' && f && !f.startsWith('dryrun') && downloadDir) {
+        source = path.join(downloadDir, f);
+        break;
+      }
+    }
+    // 2) 远端链接或 /downloads/ 引用
+    if (!source) {
+      for (const o of outs) {
+        const u = o.video_url;
+        if (typeof u === 'string' && (/^https?:/i.test(u) || u.startsWith('/downloads/'))) { source = u; break; }
+      }
+    }
+    if (!source) return;
+    await saveThumb(source, path.join(thumbsDir, `${run.wfId}.jpg`));
   }
 
   /**
@@ -585,6 +614,9 @@ export function createRunner({ gateway, unwrap, saveMedia, HttpError, sse, asset
       rememberOutputs(run, outputs);
       notify({ kind: 'run.succeeded', level: 'success', wfId: run.wfId, body: `${run.id} · ${order.length} 个节点` });
       sse.push(run.id, 'run:done', { runId: run.id, status: 'succeeded', outputs: run.outputs });
+      // 卡片缩略图：不 await——抽帧要读视频（远端链接还得拉数据），
+      // 不该让已经成功的运行多等几秒。失败只记日志。
+      makeThumb(run).catch((err) => console.warn(`[thumb] ${run.wfId}: ${err.message}`));
     } catch (err) {
       run.status = 'failed';
       run.error = err.message || String(err);

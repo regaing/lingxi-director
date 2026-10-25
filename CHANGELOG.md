@@ -8,6 +8,40 @@
 
 ## [Unreleased]
 
+### Changed
+
+- `product-ad-360` 模板的默认素材从程序生成的灰底占位图换成**真实示例图** `product-sample.jpg`（AI 生成护肤瓶，1254² 源图压到 1024²/63KB），开箱即可跑出像样的演示效果
+- 模板示例素材的取向不再一刀切：`talking-head-loop` 仍用明显假的占位图（提示必须替换），`product-ad-360` 用真实但通用的示例图。共同红线是不放「像用户自己产品」的图
+- `scripts/gen-template-assets.mjs` 默认**不覆盖已存在文件**（加 `--force` 才重生），避免把手工换进去的素材盖回灰框；`product-ad-360` 已移出脚本管辖
+- **5 个模板都补上了封面图** `templates/<id>/cover.jpg`（1024×576，合计 334KB）：产品广告＝护肤瓶影棚图、30 秒长片＝橘猫穿过客厅、竖屏短剧＝雨夜霓虹、口播＝女主播在书房、双风格＝白鹭晨雾。之前卡片顶部只有渐变色块兜底
+
+### Fixed
+
+- **`.gitignore` 的 `assets/` 规则会忽略 `templates/<id>/assets/`**：裸目录名不带前导斜杠时匹配任意层级，导致模板素材不进仓库、别人克隆后模板引用悬空。改为 `/assets/`、`/downloads/`、`/out/`
+
+### Added
+- **工作流卡片缩略图**：run 成功结束时自动抽产物首帧存 `data/thumbs/<wfId>.jpg`，首页卡片顶部铺成背景图（叠暗色遮罩保证节点数可读），高度从 88px 提到 104px；没跑过的画布仍用分类色块。抽帧异步执行、失败只记日志，不影响运行结果
+  - 实现：`media-tools.saveThumb()` 用 `-ss 0.3 -i <url>`（input seeking）抽帧，对 CDN 链接只读开头不拉整个视频；取 0.3 秒避开开头黑场
+  - 新增 `GET /api/workflows/:id/thumb`；`GET /api/workflows` 对存在缩略图的项返回 `thumb` 字段
+
+- **内置画布模板（5 个）**：首页「从模板新建」→ 选模板 → 填 1–3 个参数 → 直接得到一张能跑的画布。模板是 `templates/<id>/` 目录（`manifest.json` + `workflow.json` + `assets/`），实例化复用导入链路：素材改名落盘、节点引用重写、重名加 (2)(3)
+  - **30 秒连续长片**：生成 → 抽尾帧 → 当下一段首帧 → 再生成 → 拼接（网页端做不到的连续镜头）
+  - **竖屏短剧 3 镜**：9:16，三镜共用同一段人物描述锁长相，负向词直连每个生成节点，拼接成 18 秒
+  - **产品广告 360°**：产品图锁成第一帧 + 环绕运镜（带占位素材）
+  - **口播固定背景**：背景图作为参考素材锁场景，预览面板设为循环（带占位素材）
+  - **双风格对照**：两条独立分支一次出两个版本对比，**双倍计费**已在描述中标注
+- 新接口 `GET /api/templates`、`POST /api/templates/:id/instantiate`、`GET /api/templates/:id/cover`；模板 id 走白名单正则 + 拒绝 `..`，防目录穿越
+- 模板可声明 `params`（生成参数表单，target 精确到节点字段，类型按声明归一、越界夹紧、非法枚举退回默认）与 `requires`（必填素材，前端渲染警告）
+- `scripts/gen-template-assets.mjs`：用 ffmpeg `color` + `drawbox` + `drawgrid` + `drawtext` 程序化生成占位素材（带文字），跨平台字体探测，找不到字体退化为无文字版；`gradients` 滤镜在当前 ffmpeg build 上不可用，故未采用
+
+### Changed
+
+- `completeGraph` 的出口判定修正：`video.concat` 视为**汇聚节点**，其上游 `task.watch` 不再被要求直连 `output.*`。修复「多段生成 → 拼接 → 输出」被补出成对冗余 preview/download 的问题
+
+### Fixed
+
+- 模板实例化的 `assetHints.isPlaceholder` 恒为 false：素材落盘会被改名（防覆盖同名），改名后文件名里已无 `placeholder`，改回用模板原始节点判断
+
 ## [0.3.0] - 2026-10-23
 
 首页交互打磨 + 工作流导入导出。

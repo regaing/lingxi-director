@@ -1,0 +1,90 @@
+{
+  "format": "lingxi-director.template",
+  "version": 1,
+  "provider": "metaso-h3",
+  "name": {
+    "zh": "产品广告 · 环绕运镜",
+    "en": "Product ad · orbit"
+  },
+  "description": {
+    "zh": "你的产品图锁成第一帧，镜头环绕 + 推近收尾。默认带一张示例护肤瓶，换成你自己的产品图再运行，效果才对。",
+    "en": "Your product photo becomes the first frame; the camera orbits and pushes in. A sample bottle ships with the template — swap in your own product before running."
+  },
+  "tags": [
+    "产品",
+    "广告",
+    "首帧",
+    "图生视频"
+  ],
+  "estimate": {
+    "seconds": 6,
+    "costHint": {
+      "zh": "约 ¥0.84（1080p × 6 秒）",
+      "en": "≈ $0.12 (1080p × 6s)"
+    }
+  },
+  "requires": [
+    {
+      "nodeId": "n_img",
+      "label": {
+        "zh": "产品图",
+        "en": "Product image"
+      },
+      "why": {
+        "zh": "这张图决定视频里产品的长相。默认是一张示例护肤瓶（product-sample.jpg），换成你自己的产品图再运行。",
+        "en": "It defines what the product looks like. The default is a sample serum bottle (product-sample.jpg) — replace it with your own product."
+      }
+    }
+  ],
+  "params": [
+    {
+      "key": "prompt",
+      "type": "textarea",
+      "label": {
+        "zh": "运镜与光效描述",
+        "en": "Camera and lighting"
+      },
+      "placeholder": {
+        "zh": "例：环绕到侧面，冷光轮廓",
+        "en": "e.g. orbit to the side, cool rim light"
+      },
+      "target": {
+        "nodeId": "n_prompt",
+        "field": "text"
+      }
+    },
+    {
+      "key": "duration",
+      "type": "number",
+      "min": 4,
+      "max": 30,
+      "default": 6,
+      "label": {
+        "zh": "时长（秒）",
+        "en": "Duration (s)"
+      },
+      "target": {
+        "nodeId": "n_param",
+        "field": "duration"
+      }
+    },
+    {
+      "key": "ratio",
+      "type": "select",
+      "options": [
+        "16:9",
+        "9:16",
+        "1:1"
+      ],
+      "default": "16:9",
+      "label": {
+        "zh": "画幅",
+        "en": "Aspect ratio"
+      },
+      "target": {
+        "nodeId": "n_param",
+        "field": "ratio"
+      }
+    }
+  ]
+}

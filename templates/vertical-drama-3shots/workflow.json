@@ -1,0 +1,302 @@
+{
+  "nodes": [
+    {
+      "id": "n_prompt",
+      "type": "text.prompt",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "text": "一个 18 秒竖屏短剧，三个镜头，同一个男主角（28 岁，黑色短发，深灰连帽卫衣，黑色双肩包），全程夜景。\n\n第一镜（0-6 秒）：手机特写，屏幕亮起一条未读消息，字幕区留白。\n第二镜（6-12 秒）：男主在深夜便利店门口抬头，霓虹灯映在脸上，神情从疑惑转为惊喜。\n第三镜（12-18 秒）：他快步走向街口，背影渐远，雨丝在路灯下发光。\n\n镜头语言：手持感、浅景深、冷蓝与霓虹粉对比；节奏紧凑不拖沓；不要慢动作。\n角色在多镜之间必须保持同一张脸、同一身衣服。"
+      }
+    },
+    {
+      "id": "n_neg",
+      "type": "text.negative",
+      "position": {
+        "x": 0,
+        "y": 320
+      },
+      "data": {
+        "text": "blurry, extra fingers, distorted face, watermark, on-screen text, flickering, morphing, low quality"
+      }
+    },
+    {
+      "id": "n_param",
+      "type": "param.video",
+      "position": {
+        "x": 0,
+        "y": 560
+      },
+      "data": {
+        "duration": 6,
+        "resolution": "768P",
+        "ratio": "9:16",
+        "watermark": ""
+      }
+    },
+    {
+      "id": "n_gen1",
+      "type": "gen.video",
+      "position": {
+        "x": 360,
+        "y": -60
+      },
+      "data": {}
+    },
+    {
+      "id": "n_watch1",
+      "type": "task.watch",
+      "position": {
+        "x": 660,
+        "y": -60
+      },
+      "data": {
+        "pollMs": 4,
+        "timeoutMin": 45
+      }
+    },
+    {
+      "id": "n_gen2",
+      "type": "gen.video",
+      "position": {
+        "x": 360,
+        "y": 200
+      },
+      "data": {}
+    },
+    {
+      "id": "n_watch2",
+      "type": "task.watch",
+      "position": {
+        "x": 660,
+        "y": 200
+      },
+      "data": {
+        "pollMs": 4,
+        "timeoutMin": 45
+      }
+    },
+    {
+      "id": "n_gen3",
+      "type": "gen.video",
+      "position": {
+        "x": 360,
+        "y": 460
+      },
+      "data": {}
+    },
+    {
+      "id": "n_watch3",
+      "type": "task.watch",
+      "position": {
+        "x": 660,
+        "y": 460
+      },
+      "data": {
+        "pollMs": 4,
+        "timeoutMin": 45
+      }
+    },
+    {
+      "id": "n_concat",
+      "type": "video.concat",
+      "position": {
+        "x": 980,
+        "y": 200
+      },
+      "data": {
+        "namePrefix": "drama"
+      }
+    },
+    {
+      "id": "n_preview",
+      "type": "output.preview",
+      "position": {
+        "x": 1290,
+        "y": 100
+      },
+      "data": {
+        "autoOpen": true,
+        "autoPlay": true,
+        "loop": false
+      }
+    },
+    {
+      "id": "n_download",
+      "type": "output.download",
+      "position": {
+        "x": 1290,
+        "y": 340
+      },
+      "data": {
+        "namePrefix": "video",
+        "autoDownload": true
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "n_prompt",
+      "sourceHandle": "text",
+      "target": "n_gen1",
+      "targetHandle": "text"
+    },
+    {
+      "id": "e2",
+      "source": "n_neg",
+      "sourceHandle": "text",
+      "target": "n_gen1",
+      "targetHandle": "text"
+    },
+    {
+      "id": "e3",
+      "source": "n_param",
+      "sourceHandle": "duration",
+      "target": "n_gen1",
+      "targetHandle": "duration"
+    },
+    {
+      "id": "e4",
+      "source": "n_param",
+      "sourceHandle": "resolution",
+      "target": "n_gen1",
+      "targetHandle": "resolution"
+    },
+    {
+      "id": "e5",
+      "source": "n_param",
+      "sourceHandle": "ratio",
+      "target": "n_gen1",
+      "targetHandle": "ratio"
+    },
+    {
+      "id": "e6",
+      "source": "n_gen1",
+      "sourceHandle": "task_id",
+      "target": "n_watch1",
+      "targetHandle": "task_id"
+    },
+    {
+      "id": "e7",
+      "source": "n_watch1",
+      "sourceHandle": "video_url",
+      "target": "n_concat",
+      "targetHandle": "video_url"
+    },
+    {
+      "id": "e8",
+      "source": "n_prompt",
+      "sourceHandle": "text",
+      "target": "n_gen2",
+      "targetHandle": "text"
+    },
+    {
+      "id": "e9",
+      "source": "n_neg",
+      "sourceHandle": "text",
+      "target": "n_gen2",
+      "targetHandle": "text"
+    },
+    {
+      "id": "e10",
+      "source": "n_param",
+      "sourceHandle": "duration",
+      "target": "n_gen2",
+      "targetHandle": "duration"
+    },
+    {
+      "id": "e11",
+      "source": "n_param",
+      "sourceHandle": "resolution",
+      "target": "n_gen2",
+      "targetHandle": "resolution"
+    },
+    {
+      "id": "e12",
+      "source": "n_param",
+      "sourceHandle": "ratio",
+      "target": "n_gen2",
+      "targetHandle": "ratio"
+    },
+    {
+      "id": "e13",
+      "source": "n_gen2",
+      "sourceHandle": "task_id",
+      "target": "n_watch2",
+      "targetHandle": "task_id"
+    },
+    {
+      "id": "e14",
+      "source": "n_watch2",
+      "sourceHandle": "video_url",
+      "target": "n_concat",
+      "targetHandle": "video_url"
+    },
+    {
+      "id": "e15",
+      "source": "n_prompt",
+      "sourceHandle": "text",
+      "target": "n_gen3",
+      "targetHandle": "text"
+    },
+    {
+      "id": "e16",
+      "source": "n_neg",
+      "sourceHandle": "text",
+      "target": "n_gen3",
+      "targetHandle": "text"
+    },
+    {
+      "id": "e17",
+      "source": "n_param",
+      "sourceHandle": "duration",
+      "target": "n_gen3",
+      "targetHandle": "duration"
+    },
+    {
+      "id": "e18",
+      "source": "n_param",
+      "sourceHandle": "resolution",
+      "target": "n_gen3",
+      "targetHandle": "resolution"
+    },
+    {
+      "id": "e19",
+      "source": "n_param",
+      "sourceHandle": "ratio",
+      "target": "n_gen3",
+      "targetHandle": "ratio"
+    },
+    {
+      "id": "e20",
+      "source": "n_gen3",
+      "sourceHandle": "task_id",
+      "target": "n_watch3",
+      "targetHandle": "task_id"
+    },
+    {
+      "id": "e21",
+      "source": "n_watch3",
+      "sourceHandle": "video_url",
+      "target": "n_concat",
+      "targetHandle": "video_url"
+    },
+    {
+      "id": "e22",
+      "source": "n_concat",
+      "sourceHandle": "video_url",
+      "target": "n_preview",
+      "targetHandle": "video_url"
+    },
+    {
+      "id": "e23",
+      "source": "n_concat",
+      "sourceHandle": "video_url",
+      "target": "n_download",
+      "targetHandle": "video_url"
+    }
+  ]
+}

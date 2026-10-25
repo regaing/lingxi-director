@@ -7,6 +7,7 @@ import NotificationCenter from '../components/NotificationCenter.jsx';
 import { LogoMark } from '../components/Logo.jsx';
 import { Ic } from '../components/Icons.jsx';
 import { fetchExportZip, saveBlob, safeFileName, importZip, isZip } from '../bundle.js';
+import TemplatePicker from '../components/TemplatePicker.jsx';
 
 function fmt(ts) {
   if (!ts) return '-';
@@ -39,6 +40,7 @@ export default function Home() {
   const [picked, setPicked] = useState(() => new Set());
   const [moveOpen, setMoveOpen] = useState(false);
   const [ioBusy, setIoBusy] = useState(false);      // 导入 / 导出进行中
+  const [showTemplates, setShowTemplates] = useState(false);   // 从模板新建
   const [note, setNote] = useState('');             // 成功类提示，与 err 分开
   const fileRef = useRef(null);
   const [dragCat, setDragCat] = useState(null);
@@ -386,6 +388,9 @@ export default function Home() {
                 </>
               ) : (
                 <>
+                  <button type="button" className="wb-btn" onClick={() => setShowTemplates(true)}>
+                    <Ic n="layers" size={14} /> {t('tpl.open')}
+                  </button>
                   <button type="button" className="wb-btn" onClick={() => fileRef.current?.click()} disabled={ioBusy}>
                     <Ic n="upload" size={14} /> {t('home.import')}
                   </button>
@@ -422,7 +427,11 @@ export default function Home() {
                 className={`wb-card${picked.has(it.id) ? ' is-picked' : ''}`}
                 onClick={() => (selectMode ? togglePick(it.id) : go(`#/wf/${it.id}`))}
               >
-                <div className="wb-card__thumb" style={{ '--card-accent': it.categoryId ? catColor(it.categoryId) : 'var(--accent)' }}>
+                <div
+                  className={`wb-card__thumb${it.thumb ? ' has-img' : ''}`}
+                  style={{ '--card-accent': it.categoryId ? catColor(it.categoryId) : 'var(--accent)' }}
+                >
+                  {it.thumb && <img className="wb-card__img" src={it.thumb} alt="" loading="lazy" />}
                   <span className="wb-card__nodes">
                     <Ic n="layers" size={14} /> {it.nodes}
                   </span>
@@ -524,6 +533,12 @@ export default function Home() {
       )}
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showTemplates && (
+        <TemplatePicker
+          onClose={() => setShowTemplates(false)}
+          onCreated={(id) => { setShowTemplates(false); go(`/wf/${id}`); }}
+        />
+      )}
       {/* 重命名工作流（替代 window.prompt：桌面壳里 prompt 不弹，点了没反应） */}
       {renameTarget && (
         <div className="wb-modal-mask" onMouseDown={(e) => { if (e.target === e.currentTarget) setRenameTarget(null); }}>

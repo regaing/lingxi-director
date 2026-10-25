@@ -1,0 +1,59 @@
+{
+  "format": "lingxi-director.template",
+  "version": 1,
+  "provider": "metaso-h3",
+  "name": {
+    "zh": "双风格对照",
+    "en": "Two-style A/B"
+  },
+  "description": {
+    "zh": "同一题材写两种风格，两条分支各跑一次，出两个视频对比着挑。注意：两条分支都会真实计费，一次运行花两份钱。",
+    "en": "One subject in two styles, two independent branches, two videos to compare. Note: both branches bill separately — one run costs double."
+  },
+  "tags": [
+    "对比",
+    "多分支",
+    "选型"
+  ],
+  "estimate": {
+    "seconds": 10,
+    "costHint": {
+      "zh": "约 ¥0.9（768P × 10 秒，两条分支各 5 秒）",
+      "en": "≈ $0.12 (768P × 10s, 5s each branch)"
+    }
+  },
+  "params": [
+    {
+      "key": "styleA",
+      "type": "textarea",
+      "label": {
+        "zh": "风格 A",
+        "en": "Style A"
+      },
+      "placeholder": {
+        "zh": "例：极简留白，冷青，胶片颗粒",
+        "en": "e.g. minimal, cold cyan, film grain"
+      },
+      "target": {
+        "nodeId": "n_promptA",
+        "field": "text"
+      }
+    },
+    {
+      "key": "styleB",
+      "type": "textarea",
+      "label": {
+        "zh": "风格 B",
+        "en": "Style B"
+      },
+      "placeholder": {
+        "zh": "例：暖金逆光，高对比，强戏剧感",
+        "en": "e.g. warm backlight, high contrast, dramatic"
+      },
+      "target": {
+        "nodeId": "n_promptB",
+        "field": "text"
+      }
+    }
+  ]
+}

@@ -374,6 +374,20 @@ select.wb-input option { background: var(--surface-3); color: var(--text); }
   background: linear-gradient(140deg, var(--card-accent, var(--accent)), transparent 76%);
   opacity: .26;
 }
+
+/* 有产物首帧时铺成背景图：图片垫底，暗色遮罩压住画面保证节点数可读 */
+.wb-card__thumb.has-img { height: 104px; }
+.wb-card__img {
+  position: absolute; inset: 0; z-index: 0;
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.wb-card__thumb.has-img::before {
+  z-index: 1; opacity: 1;
+  background: linear-gradient(180deg, rgba(10, 10, 16, .5) 0%, rgba(10, 10, 16, .88) 100%);
+}
+.wb-card__thumb.has-img .wb-card__nodes,
+.wb-card__thumb.has-img .wb-card__edges,
+.wb-card__thumb.has-img .wb-card__check { z-index: 2; }
 .wb-card__nodes { position: relative; display: inline-flex; align-items: center; gap: 6px; font-size: 21px; font-weight: 700; color: #e4e0ff; letter-spacing: -.02em; }
 .wb-card__edges { position: relative; font-size: 10.5px; color: var(--text-dim); }
 
@@ -709,6 +723,62 @@ select.wb-input option { background: var(--surface-3); color: var(--text); }
   animation: wb-pop .18s ease-out;
 }
 .wb-modal--sm { max-width: 372px; }
+.wb-modal--wide { max-width: 780px; }
+
+/* ── 从模板新建 ── */
+.wb-tpl-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 720px) { .wb-tpl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* 卡片靠背景色阶分层，只有选中态才加描边（界面风格约定） */
+.wb-tpl-card {
+  display: flex; flex-direction: column; gap: 7px; text-align: left;
+  padding: 9px; background: var(--surface-1); color: var(--text);
+  border: 0; border-radius: var(--radius-md); cursor: pointer;
+  transition: background .14s ease, box-shadow .14s ease;
+}
+.wb-tpl-card:hover { background: var(--surface-3); }
+.wb-tpl-card.is-on { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+
+.wb-tpl-card__cover {
+  position: relative; aspect-ratio: 16 / 9; width: 100%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface-3); border-radius: var(--radius-sm);
+  color: var(--text-mute); overflow: hidden;
+}
+.wb-tpl-card__cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.wb-tpl-card__title { font-size: 12.5px; font-weight: 600; line-height: 1.35; }
+.wb-tpl-card__desc {
+  font-size: 11.5px; line-height: 1.55; color: var(--text-dim);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.wb-tpl-card__meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-mute); }
+.wb-tpl-card__dot {
+  padding: 1px 6px; border-radius: 999px;
+  background: var(--surface-4); color: var(--text-dim); font-size: 10.5px;
+}
+
+.wb-tpl-detail {
+  margin-top: 13px; padding: 13px 14px 14px;
+  background: var(--surface-1); border-radius: var(--radius-md);
+  display: flex; flex-direction: column; gap: 11px;
+}
+.wb-tpl-detail__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.wb-tpl-detail__head strong { font-size: 13.5px; }
+
+.wb-tpl-warn {
+  display: flex; gap: 8px; align-items: flex-start;
+  padding: 10px 11px; border-radius: var(--radius-sm);
+  background: rgba(245, 171, 61, .1); color: #f0b45e;
+  font-size: 11.5px; line-height: 1.65;
+}
+.wb-tpl-warn svg { flex: none; margin-top: 1px; }
+.wb-tpl-warn strong { color: #f7c877; }
+
+.wb-tpl-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.wb-tpl-form .wb-field:has(.wb-input--area) { grid-column: 1 / -1; }
+@media (max-width: 620px) { .wb-tpl-form { grid-template-columns: 1fr; } }
+.wb-input--area { resize: vertical; min-height: 62px; line-height: 1.6; font-family: inherit; }
 .wb-modal__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 15px 10px; }
 .wb-modal__head strong { font-size: 14px; }
 .wb-modal__body { flex: 1; overflow-y: auto; padding: 4px 15px 8px; }

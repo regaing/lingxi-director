@@ -55,6 +55,23 @@ const D = {
   'bundle.err.notZip': ['「{{name}}」不是 .zip 包，只能导入导出的 zip', 'Not a .zip bundle: {{name}}'],
   'bundle.err.badZip': ['这个 zip 解不开（可能已损坏）', 'The zip cannot be opened'],
   'bundle.err.badMeta': ['zip 里缺少 workflows.json，不是导演台导出包', 'workflows.json missing — not a director bundle'],
+
+  /* 内置模板 */
+  'tpl.open': ['从模板新建', 'New from template'],
+  'tpl.title': ['从模板新建', 'New from template'],
+  'tpl.empty': ['还没有可用模板', 'No templates installed'],
+  'tpl.create': ['创建并打开', 'Create and open'],
+  'tpl.name': ['新画布名称', 'Workflow name'],
+  'tpl.nodes': ['{{n}} 个节点', '{{n}} nodes'],
+  'tpl.hasAssets': ['含素材', 'has assets'],
+  'tpl.estimate': ['预计：{{hint}}', 'Estimate: {{hint}}'],
+  'tpl.pickHint': ['先选一个模板', 'Pick a template first'],
+  'tpl.pickedHint': ['参数留空就用模板默认值', 'Leave fields empty to use defaults'],
+  'tpl.needRequired': ['请先填写必填项', 'Fill in the required fields first'],
+  'tpl.err.noTemplate': ['模板不存在，可能已被移除', 'Template not found — it may have been removed'],
+  'tpl.err.badTemplate': ['模板内容有误，无法创建', 'Template is broken and cannot be created'],
+  'tpl.err.badTemplateMeta': ['模板描述文件损坏', 'Template manifest is corrupt'],
+  'tpl.err.noCover': ['模板没有封面', 'No cover image'],
   'bundle.err.empty': ['包里没有工作流', 'No workflows in this bundle'],
 
   /* 分类：一部剧一个分类 */

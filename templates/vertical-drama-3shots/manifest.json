@@ -1,0 +1,59 @@
+{
+  "format": "lingxi-director.template",
+  "version": 1,
+  "provider": "metaso-h3",
+  "name": {
+    "zh": "竖屏短剧 · 3 镜",
+    "en": "Vertical drama · 3 shots"
+  },
+  "description": {
+    "zh": "竖屏 9:16，三个 6 秒镜头共用同一段人物描述锁住长相，负向词直连每个生成节点，最后拼接成 18 秒。适合短剧/短视频分镜。",
+    "en": "Vertical 9:16, three 6-second shots sharing one character description to keep the face consistent, negatives wired to each generator, concatenated into 18s."
+  },
+  "tags": [
+    "竖屏",
+    "短剧",
+    "分镜",
+    "拼接"
+  ],
+  "estimate": {
+    "seconds": 18,
+    "costHint": {
+      "zh": "约 ¥1.6（768P × 18 秒）",
+      "en": "≈ $0.22 (768P × 18s)"
+    }
+  },
+  "params": [
+    {
+      "key": "story",
+      "type": "textarea",
+      "label": {
+        "zh": "三个镜头分别讲什么？",
+        "en": "What are the three shots?"
+      },
+      "placeholder": {
+        "zh": "按「第一镜/第二镜/第三镜」写，越具体越好",
+        "en": "Describe shot 1 / 2 / 3, as specifically as you can"
+      },
+      "target": {
+        "nodeId": "n_prompt",
+        "field": "text"
+      }
+    },
+    {
+      "key": "duration",
+      "type": "number",
+      "min": 4,
+      "max": 30,
+      "default": 6,
+      "label": {
+        "zh": "每镜时长（秒）",
+        "en": "Seconds per shot"
+      },
+      "target": {
+        "nodeId": "n_param",
+        "field": "duration"
+      }
+    }
+  ]
+}

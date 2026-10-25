@@ -1,0 +1,71 @@
+{
+  "format": "lingxi-director.template",
+  "version": 1,
+  "provider": "metaso-h3",
+  "name": {
+    "zh": "口播 · 固定背景",
+    "en": "Talking head · fixed backdrop"
+  },
+  "description": {
+    "zh": "背景图作为参考素材锁住场景，人物在固定机位口播，预览面板设为循环播放，适合反复看口型和节奏。现在带的是占位背景。",
+    "en": "The backdrop image is used as a reference to lock the scene; the presenter stays in a fixed shot. Preview loops so you can judge lip-sync and pacing."
+  },
+  "tags": [
+    "口播",
+    "参考素材",
+    "循环"
+  ],
+  "estimate": {
+    "seconds": 8,
+    "costHint": {
+      "zh": "约 ¥1.12（1080p × 8 秒）",
+      "en": "≈ $0.16 (1080p × 8s)"
+    }
+  },
+  "requires": [
+    {
+      "nodeId": "n_bg",
+      "label": {
+        "zh": "背景图",
+        "en": "Backdrop image"
+      },
+      "why": {
+        "zh": "参考图决定场景。留着占位背景跑，背景会是一片网格，跟你想要的环境无关。",
+        "en": "The reference image defines the scene. With the placeholder you get a grid, not your room."
+      }
+    }
+  ],
+  "params": [
+    {
+      "key": "prompt",
+      "type": "textarea",
+      "label": {
+        "zh": "人物与口播内容",
+        "en": "Presenter and script"
+      },
+      "placeholder": {
+        "zh": "例：一位女性主持人正面讲解产品用法",
+        "en": "e.g. a presenter explains the product to camera"
+      },
+      "target": {
+        "nodeId": "n_prompt",
+        "field": "text"
+      }
+    },
+    {
+      "key": "duration",
+      "type": "number",
+      "min": 4,
+      "max": 30,
+      "default": 8,
+      "label": {
+        "zh": "时长（秒）",
+        "en": "Duration (s)"
+      },
+      "target": {
+        "nodeId": "n_param",
+        "field": "duration"
+      }
+    }
+  ]
+}

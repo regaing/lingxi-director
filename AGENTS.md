@@ -1,4 +1,4 @@
-# AGENTS.md · 灵动导演台（MiniMax-H3）
+﻿# AGENTS.md · 灵动导演台（MiniMax-H3）
 
 > 本文件是给 AI 助手读的项目上下文，**由 AI 自动维护**；维护规则见第 0 节。
 
@@ -75,6 +75,8 @@ data/workbench.db    SQLite 库（gitignore；图 / 分类 / 通知 / 运行记�
 assets/           上传的素材（gitignore；JSON 只存引用不存 base64）
 downloads/        产物落盘（gitignore）
 out/              图像/立绘等手工产物（gitignore）
+templates/        内置画布模板：一模板一目录（manifest.json + workflow.json + assets/），**要进仓库**
+scripts/          维护脚本（gen-template-assets.mjs 用 ffmpeg 生成模板占位图）
 config.json       token + baseUrl（gitignore，绝不写入本文件）
 .run/             临时脚本（gitignore）
 ```
@@ -104,6 +106,13 @@ config.json       token + baseUrl（gitignore，绝不写入本文件）
 | 任务列表 | `GET /api/tasks` 透传网关任务列表；带 `wfId` 时只回该流的任务——网关任务**没有 wf 字段**，靠 `runs.outputs` 里的 `task_id` + 图里 `task.source` 的 `taskId` 反查过滤（所以超出「每流 50 条 run」或 7 天保留期的任务查不到） |
 | 导入导出 | `.zip` 包：`workflows.json` + `assets/<文件>`（素材是真实文件，**不塞 base64**）；`GET /api/export[?wfId=]` 导出单个/全库，`POST /api/import` 收原始 zip（不走 JSON 体）。导入**永远**新建副本，素材落盘换新文件名并重写节点引用，重名加 (2)(3)。zip 用 npm 的 `fflate`（纯 JS，无二进制下载） |
 | 节点状态词 | `runner` 发 **`running` / `success` / `error` / `skipped` / `cancelled`**，run 级才是 `succeeded` / `failed`；两套 i18n key 都要在 |
+| 内置模板 | 模板 = `templates/<id>/` **目录**（不是 zip）：`manifest.json` + `workflow.json` + `assets/`。id 走白名单正则 `/^[a-z0-9][a-z0-9._-]{0,63}$/i` 且拒 `..`（防目录穿越）。实例化复用 `importBundle`（素材改名落盘 + 引用重写 + 重名加 (2)(3)），不占 `workflows` 表。`manifest.params[].target` 指向节点字段做参数化，`requires` 声明必填素材（前端据此警告）。模板图**必须自带** `task.watch` + `output.*`，`completeGraph` 只是兜底；`node scripts/verify-templates.mjs` 断言「补齐 ops 为空」 |
+| 模板示例素材 | 两种取向：① **明显假的占位图**（深灰底 + 框 + 「占位素材 PLACEHOLDER」）——`talking-head-loop` 用这个，提示用户必须替换，由 `scripts/gen-template-assets.mjs` 生成（脚本默认不覆盖已存在文件，加 `--force` 才重生）；② **真实但通用的示例图**——`product-ad-360` 的 `product-sample.jpg`（护肤瓶，1254² 源图压到 1024²/63KB），开箱即跑做演示。**共同红线：绝不放「像用户自己产品」的图**，否则用户直接跑，拿到不是自己东西的视频还以为模板在正常工作 |
+| 忽略规则 | `.gitignore` 里的运行时目录必须写**前导斜杠**：裸 `assets/` 会匹配任意层级的 `assets`，连 `templates/<id>/assets/` 里的模板素材一起排除（模板就不完整了）。已修为 `/assets/` `/downloads/` `/out/` |
+| 模板封面 | `templates/<id>/cover.jpg`（或 `.png`，模板根目录或 `assets/` 下都认），建议 **1024×576 / 16:9**、30–120KB。卡片实际只显示 ~240px 宽，别放 2MB 原图。`readTemplateCover` 对 jpg 的 MIME 必须是 `image/jpeg`（不是 `image/jpg`） |
+| 卡片缩略图 | 工作流卡片的背景图 = **产物首帧**，存 `data/thumbs/<wfId>.jpg`（`data/` 已 gitignore）。run 成功时由 `runner` 调 `media-tools.saveThumb()` **异步**生成，失败只 `console.warn`，绝不影响 run 状态。优先取 `outputs[].file`（downloads 本地文件），没有才用 `video_url`（CDN 签名会过期，所以只在成功那一刻抽）。前端 `GET /api/workflows` 的 `thumb` 字段存在才铺图，没有退回分类色块 |
+| ffmpeg 滤镜 | 当前 npm 分发的 build（2018 版，N-92722）**不支持 `gradients`**；`color` / `drawbox` / `drawgrid` / `testsrc` / `drawtext`（libfreetype）均可用。`drawtext` 的字体路径要把盘符冒号转义成 `C\:/Windows/Fonts/msyh.ttc` |
+| 汇聚节点 | `video.concat` 是**汇聚节点**：`completeGraph` 的出口判定里，它上游的 `task.watch` 不再要求直连 `output.*`（出口由 concat 统一负责）。新增同类汇聚节点要同步加进 `lib/graph-complete.mjs` 的 `SINK_TYPES` |
 | AI 改流程 | 模型只负责内容；`POST /api/workflow/:id/ai` 应用后必走 `lib/graph-complete.mjs` 补齐：`gen.* → task.watch → output.preview + output.download`、`gen.video` 缺负向词就补一个。规则单一来源是 `graph/model.js` 的 `FLOW_RULES`（随 `schemaForLLM()` 投影给 LLM）；响应带 `autoFilled` |
 | 单步运行 | `POST /api/run {nodeIds:[id], single:true}` 只跑该节点并复用上次输入输出（不重复计费）；`single:false` 跑该节点及全部上游（重新计费） |
 | AI 优化 | `POST /api/llm/optimize {text, kind}` → `{text, note, original}`；结果先预览，用户点「替换为优化版」才写回节点 |
