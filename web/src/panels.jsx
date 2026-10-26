@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { NODE_DEFS, GROUPS, PROVIDER } from './graph/model.js';
+import { NODE_DEFS, GROUPS, PROVIDER, assetKind } from './graph/model.js';
 import { api } from './api.js';
 import { useI18n } from './i18n.jsx';
 import { Ic } from './components/Icons.jsx';
 import NodeHelp from './components/NodeHelp.jsx';
+import AssetLightbox from './components/AssetLightbox.jsx';
 import { PRESET_GROUPS, presetsOf, pickLang } from './presets.js';
 
 /* 哪些字符串按 i18n key 处理（不是 key 的就当字面量显示）；新增前缀记得加在这里 */
@@ -205,6 +206,8 @@ function AssetsField({ label, value, onChange }) {
   const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  // 放大预览的当前下标；null = 没开
+  const [box, setBox] = useState(null);
   const list = value || [];
 
   async function handleFiles(files) {
@@ -226,7 +229,8 @@ function AssetsField({ label, value, onChange }) {
         const dataBase64 = await fileToBase64(f);
         if (!dataBase64) continue;
         const saved = await api.uploadAsset({ name: f.name, mime: f.type, dataBase64 });
-        added.push({ ...saved, w, h });
+        // 记下 mime：缩略图靠它区分图片/视频/音频（老数据没有 mime，就退回落盘扩展名）
+        added.push({ ...saved, w, h, mime: f.type || saved.mime || '' });
       }
       if (added.length) onChange([...list, ...added]);
     } catch (e) {
@@ -251,18 +255,36 @@ function AssetsField({ label, value, onChange }) {
       </label>
       {err && <div className="wb-field__err">{err}</div>}
       {!list.length && !busy && <div className="wb-field__hint">{t('empty.noAssets')}</div>}
-      {list.map((a, i) => (
-        <div key={a.asset} className="wb-asset">
-          <img className="wb-asset__thumb" src={`/api/assets/${a.asset}`} alt={a.name} loading="lazy" />
-          <span className="wb-asset__name" title={a.name}>
-            {a.name}
-            {a.w ? <em className="wb-asset__dim">{a.w}×{a.h}</em> : null}
-          </span>
-          <button type="button" className="wb-asset__x" onClick={() => onChange(list.filter((_, j) => j !== i))} title={t('media.remove')}>
-            <Ic n="close" size={12} />
-          </button>
-        </div>
-      ))}
+      {list.map((a, i) => {
+        // 只有图片能用 <img> 出画面；视频/音频给类型图标，别让 img 去加载 mp4（必然空白）
+        const kind = assetKind(a);
+        const file = a.asset || a.name;
+        return (
+          <div key={file} className="wb-asset">
+            {/* 点缩略图放大：图片走缩放预览，视频/音频在同一个预览层里直接播 */}
+            <button type="button" className="wb-asset__open" onClick={() => setBox(i)} title={t('asset.preview')}>
+              {kind === 'image' ? (
+                <img className="wb-asset__thumb" src={`/api/assets/${file}`} alt={a.name} loading="lazy" />
+              ) : (
+                <span className={`wb-asset__thumb wb-asset__thumb--icon${kind === 'audio' ? ' is-audio' : ''}`}>
+                  <Ic n={kind === 'audio' ? 'audio' : 'film'} size={15} />
+                </span>
+              )}
+            </button>
+            <span className="wb-asset__name" title={a.name}>
+              {a.name}
+              {a.w ? <em className="wb-asset__dim">{a.w}×{a.h}</em> : null}
+            </span>
+            <button type="button" className="wb-asset__x" onClick={() => onChange(list.filter((_, j) => j !== i))} title={t('media.remove')}>
+              <Ic n="close" size={12} />
+            </button>
+          </div>
+        );
+      })}
+      {/* list 被删空时 box 可能越界，用 list[box] 兜一层 */}
+      {box != null && list[box] ? (
+        <AssetLightbox items={list} index={box} onIndexChange={setBox} onClose={() => setBox(null)} />
+      ) : null}
     </div>
   );
 }

@@ -95,7 +95,10 @@ config.json       token + baseUrl（gitignore，绝不写入本文件）
 | 首尾帧 vs 参考素材 | **互斥**（`web/src/graph/model.js` 的 `PROVIDER.framesVsRef`）。秘塔是否放行**未验证**，暂按互斥保护 |
 | 素材宽高比 | **0.4–2.5 闭区间** |
 | 错误码 `2013` | **通用「参数校验失败」**，不只宽高比；必须看 message 判断是哪个参数 |
-| 素材形式 | base64 data URI 塞 `content`；请求体上限 200MB（`MAX_BODY`） |
+| 素材形式 | base64 data URI 塞 `content`；请求体上限 200MB（`MAX_BODY`）。data URI 的 MIME 必须按扩展名映射（`runner.mjs` 的 `ASSET_DATA_MIME`），视频/音频拼成 `image/*` 会被网关 2013 挡掉 |
+| 素材缩略图 | **只有图片能用 `<img>` 出画面**：类型判定走 `graph/model.js` 的 `assetKind()`（先看上传时记的 `mime`，老数据退回落盘扩展名），视频/音频只给类型图标。别把 mp4 塞进 `<img>`（必然空白） |
+| 素材 mime↔扩展名 | `server.mjs` 的 `ASSET_MIME_TO_EXT` / `ASSET_EXT_TO_MIME` 必须成对增减；漏一个就会落成 `.bin`（浏览器不预览、网关不认）。上传响应回带 `mime` |
+| 素材放大预览 | 点素材缩略图开 `components/AssetLightbox.jsx`（portal 到 body；滚轮缩放 / 拖拽平移 / ←→ 切换 / Esc 关闭）。它的键盘监听必须留在 **window capture 阶段并 stopPropagation**，否则预览开着按 Delete 会把选中节点删掉 |
 | `aigc_watermark` | 三态：省略 / `true` / 显式 `false` |
 | 提示词 | 负向词必须并进同一条 `text`、放末尾；`runner` 的 `joinTexts` 按 `__negative` 标记分离，正文在前负向词在后。**负向词必须直连 `gen.*`**，经 `text.merge` 会丢标记 |
 | 图唯一真相 | `data/workbench.db` 的 `workflows` 表；写入走 revision 乐观锁，冲突返回 409，**不许静默覆盖** |
@@ -134,5 +137,8 @@ config.json       token + baseUrl（gitignore，绝不写入本文件）
 
 ## 5. 已知限制（未验证的不硬写）
 
-- 输出视频**是否带音轨未说明**，要声音需后期配；参考视频走 base64 会让请求体很大（长视频改公网 URL）；下载链接带签名会过期，需重查任务拿新链；429 / 503 是限流或渠道满，退避重试即可
+- 输出视频**实测带 aac 音轨**（32kHz stereo；6s / 10s 产物均如此），音轨内容是否继承参考视频音频**未验证**，要配乐仍建议后期叠；参考视频走 base64 会让请求体很大（2MB 源 ≈ 2.7MB）；下载链接带签名会过期，需重查任务拿新链；429 / 503 是限流或渠道满，退避重试即可
+- 参考视频**能被网关读到**（实测 15s / 16:9 / 固定机位天台舞蹈，产物复现了天台、天空、西装与大幅动作）；但**静态参考图会抢权重**：三张棚拍 T-pose 图 + 舞蹈视频一起喂，产物退化成棚拍站姿、动作全丢。要动作跟视频就减少静态图（留 1 张正面）并在提示词里分层写「角色来自图 / 动作+镜头+场景来自视频」
+- 提示词里**必须显式写出动作**：只写 `performs the same actions as the reference video` 这类抽象约束，产物会站桩轻摆；写「beat by beat + 具体肢体动作 + never stand still」才动得起来。负向词别放 `morphing` / `flickering`，会压制大幅动作
+- 参考素材**不要用三视图 / 多视图**：字节官方 prompt guide 明确写「人物参考图优先用单人独立照片，不建议三视图/多视图」，多视图会被识别成多个主体，出「双胞胎 / 同款分身」。正确配置是**全身照 1 张 + 面部特写 1 张**，总素材 4–5 个（角色图 1-2 + 场景图 1 + 运镜视频 1 + 音频 1）
 

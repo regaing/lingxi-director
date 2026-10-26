@@ -72,6 +72,23 @@ const MIME = {
   '.mp3': 'audio/mpeg',
 };
 
+/**
+ * 素材（assets/）的 mime ↔ 扩展名：上传按 mime 定扩展名，读取按扩展名回 mime。
+ * 两边必须成对，否则落成 .bin —— 浏览器不能预览、网关也不认这个素材。
+ * 视频/音频也要在这张表里：它们的后缀就是前端判断「能否用 <img> 出画面」的依据。
+ */
+const ASSET_MIME_TO_EXT = {
+  'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'image/avif': 'avif',
+  'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov',
+  'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/mp4': 'm4a', 'audio/ogg': 'ogg',
+};
+
+const ASSET_EXT_TO_MIME = {
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', avif: 'image/avif',
+  mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime',
+  mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', ogg: 'audio/ogg',
+};
+
 class HttpError extends Error {
   /** code 是给前端翻译用的错误码（如导入包的 badZip）；message 只当技术信息看 */
   constructor(status, message, code) {
@@ -495,7 +512,7 @@ async function handleApi(req, res, url) {
     try {
       const buf = await readFile(path.join(ASSETS_DIR, name));
       const ext = path.extname(name).slice(1).toLowerCase();
-      const mime = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', mp4: 'video/mp4', mp3: 'audio/mpeg', wav: 'audio/wav' }[ext] || 'application/octet-stream';
+      const mime = ASSET_EXT_TO_MIME[ext] || 'application/octet-stream';
       res.writeHead(200, { 'content-type': mime, 'cache-control': 'public, max-age=31536000, immutable' });
       return res.end(buf);
     } catch {
@@ -506,14 +523,14 @@ async function handleApi(req, res, url) {
   if (url.pathname === '/api/assets' && req.method === 'POST') {
     const { name, mime, dataBase64 } = await readBody(req);
     if (!dataBase64) throw new HttpError(400, '缺少 dataBase64');
-    const ext = ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif',
-      'video/mp4': 'mp4', 'audio/mpeg': 'mp3', 'audio/wav': 'wav' })[mime] || 'bin';
+    const ext = ASSET_MIME_TO_EXT[String(mime || '').toLowerCase()] || 'bin';
     const buf = Buffer.from(String(dataBase64), 'base64');
     if (buf.length > 80 * 1024 * 1024) throw new HttpError(400, '单个素材不能超过 80MB');
     await mkdir(ASSETS_DIR, { recursive: true });
     const asset = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
     await writeFile(path.join(ASSETS_DIR, asset), buf);
-    return sendJson(res, 200, { asset, name: String(name || asset), bytes: buf.length });
+    // 回带落盘 mime：前端拿它判定素材类型（图片才用 <img>，视频/音频只给图标）
+    return sendJson(res, 200, { asset, name: String(name || asset), mime: ASSET_EXT_TO_MIME[ext] || '', bytes: buf.length });
   }
 
   // ── 图执行：起 run / 查询 / SSE / 取消 ──

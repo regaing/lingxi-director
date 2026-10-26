@@ -11,7 +11,8 @@ import {
   ChevronDown, ChevronRight, Info, CircleCheck, CircleX, Clock, FastForward,
   PlayCircle, Megaphone, ArrowUpRight, SlidersHorizontal, Wand2, GitBranch,
   Combine, ExternalLink, Film, CheckCheck, CircleDot, ArrowRightLeft, Upload,
-  PanelLeft, PanelRight, RotateCcw, RotateCw,
+  PanelLeft, PanelRight, RotateCcw, RotateCw, Music,
+  ChevronLeft, ZoomIn, ZoomOut, Maximize,
 } from 'lucide-react';
 
 const base = (size, strokeWidth, rest) => ({
@@ -60,6 +61,10 @@ export const Icons = {
   play: Play,
   chevronDown: ChevronDown,
   chevronRight: ChevronRight,
+  chevronLeft: ChevronLeft,
+  zoomIn: ZoomIn,
+  zoomOut: ZoomOut,
+  zoomFit: Maximize,
   info: Info,
   ok: CircleCheck,
   fail: CircleX,
@@ -74,6 +79,7 @@ export const Icons = {
   merge: Combine,
   external: ExternalLink,
   film: Film,
+  audio: Music,
   readAll: CheckCheck,
   dot: CircleDot,
   move: ArrowRightLeft,

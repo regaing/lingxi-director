@@ -26,6 +26,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** 秘塔单价（元/秒），见 plan 2.4.1 */
 const PRICE = { '480p': 0.06, '512p': 0.06, '768P': 0.09, '1080p': 0.14, '2K': 0.15 };
 
+/** 素材扩展名 → data URI 的 MIME。视频/音频绝不能拼成 image/*：网关按 MIME 校验，塞错就是 2013 */
+const ASSET_DATA_MIME = {
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif',
+  mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime',
+  mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', ogg: 'audio/ogg',
+};
+
 function topoSort(nodes, edges) {
   const ids = new Set(nodes.map((n) => n.id));
   const indeg = new Map(nodes.map((n) => [n.id, 0]));
@@ -186,8 +193,8 @@ export function createRunner({ gateway, unwrap, saveMedia, HttpError, sse, asset
     const full = path.join(assetsDir, path.basename(file));
     const buf = await readFile(full);
     const ext = path.extname(full).slice(1).toLowerCase();
-    const mime = ext === 'jpg' ? 'jpeg' : ext || 'png';
-    return `data:image/${mime};base64,${buf.toString('base64')}`;
+    const mime = ASSET_DATA_MIME[ext] || 'application/octet-stream';
+    return `data:${mime};base64,${buf.toString('base64')}`;
   }
 
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { NODE_DEFS } from '../graph/model.js';
+import { NODE_DEFS, assetKind } from '../graph/model.js';
 import { useI18n } from '../i18n.jsx';
 import { Ic } from '../components/Icons.jsx';
 
@@ -149,9 +149,22 @@ export default function BaseNode({ id, type, data, selected }) {
 
       {(data?.assets || []).length > 0 && type.startsWith('media.') ? (
         <div className="wb-node__thumbs">
-          {data.assets.slice(0, 4).map((a) => (
-            <img key={a.asset || a.name} src={`/api/assets/${a.asset || a.name}`} alt={a.name || ''} loading="lazy" />
-          ))}
+          {data.assets.slice(0, 4).map((a) => {
+            // 视频/音频塞进 <img> 只会得到空白，改给类型图标（图片照旧出画面）
+            const kind = assetKind(a);
+            const file = a.asset || a.name;
+            return kind === 'image' ? (
+              <img key={file} src={`/api/assets/${file}`} alt={a.name || ''} loading="lazy" />
+            ) : (
+              <span
+                key={file}
+                className={`wb-node__thumb wb-node__thumb--icon${kind === 'audio' ? ' is-audio' : ''}`}
+                title={`${a.name || ''} · ${t(`asset.${kind}`)}`}
+              >
+                <Ic n={kind === 'audio' ? 'audio' : 'film'} size={16} />
+              </span>
+            );
+          })}
         </div>
       ) : null}
 

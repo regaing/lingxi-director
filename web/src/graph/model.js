@@ -23,6 +23,24 @@ export const PROVIDER = {
 };
 
 /**
+ * 素材类型判定（缩略图渲染用）：图片能直接 <img> 展示，视频/音频只能给类型图标。
+ * 优先看上传时记下的 mime；老数据没有 mime，就退回落盘文件名的扩展名。
+ */
+const ASSET_EXT_KIND = {
+  png: 'image', jpg: 'image', jpeg: 'image', webp: 'image', gif: 'image', avif: 'image',
+  mp4: 'video', webm: 'video', mov: 'video', mkv: 'video',
+  mp3: 'audio', wav: 'audio', m4a: 'audio', aac: 'audio', ogg: 'audio', flac: 'audio',
+};
+
+export function assetKind(a) {
+  const head = String(a?.mime || '').split('/')[0];
+  if (head === 'image' || head === 'video' || head === 'audio') return head;
+  const file = String(a?.asset || a?.name || '');
+  const ext = file.includes('.') ? file.split('.').pop().toLowerCase() : '';
+  return ASSET_EXT_KIND[ext] || 'file';
+}
+
+/**
  * image.fit 的补边颜色（直接作为 ffmpeg 的 color 参数）。
  * 只有纯色名：hex 值在网关侧没有语义，多给反而容易配出和画面冲突的边。
  * 黑边和视频黑边一致最不突兀；白边适合浅色/商品图；灰边做中性过渡。

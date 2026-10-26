@@ -20,8 +20,15 @@
 
 - **有缩略图的工作流卡片点不到右上角「更多」**：`has-img` 时 `.wb-card__edges`（「N 条连线」）被抬到 `z-index:2` 压住图片遮罩，正好盖住三点按钮，点击漏给卡片的 `onClick` 直接进了画布。给 `.wb-card__ops` 补 `z-index:3`，按钮重新吃到点击（无缩略图的卡片本来就不受影响，所以只在跑过的工作流上复现）
 - **`.gitignore` 的 `assets/` 规则会忽略 `templates/<id>/assets/`**：裸目录名不带前导斜杠时匹配任意层级，导致模板素材不进仓库、别人克隆后模板引用悬空。改为 `/assets/`、`/downloads/`、`/out/`
+- **上传的视频素材显示成空白格**：素材缩略图一律用 `<img src="/api/assets/xxx.mp4">` 渲染，而 `<img>` 出不了视频画面，参数面板和画布节点卡片都只剩一个灰方块。新增 `graph/model.js` 的 `assetKind()`（先看上传时记下的 `mime`，老数据退回落盘扩展名），只有图片走 `<img>`，视频/音频改给类型图标（胶片 / 音符）+ 悬停提示
+- **视频/音频素材的 data URI MIME 被写死成 `image/*`**：`runner.mjs` 的 `assetUrl()` 用 `data:image/${ext}` 拼接，参考视频送到网关就成了 `data:image/mp4`，被参数校验直接挡掉（2013）。改为按扩展名映射真实 MIME（`video/mp4`、`video/quicktime`、`audio/mpeg`…），未知类型退回 `application/octet-stream`
+- **素材上传的 mime ↔ 扩展名表太窄**：`webm` / `mov` / `m4a` / `ogg` 等一律落成 `.bin`，浏览器不能预览、网关也不认。`server.mjs` 抽成成对的 `ASSET_MIME_TO_EXT` / `ASSET_EXT_TO_MIME`，上传按 mime 定扩展名、读取按扩展名回 `content-type`，并在上传响应里回带 `mime`
 
 ### Added
+
+- **素材放大预览**：点参数面板里的素材缩略图开全屏预览（`components/AssetLightbox.jsx`）。图片支持滚轮缩放（1–8 倍，以光标为中心）、双击放大/复位、放大后拖拽平移（带边界钳制，不会拖丢）；同一节点多张素材用 ← → 或底栏按钮循环切换，`Esc` / 点空白 / 右上角关闭。视频和音频在同一个预览层里直接用原生控件播放，底栏还有「打开原图」
+  - 走 `createPortal` 挂到 `body`：`position: fixed` 遇到带 `transform` 的祖先把锚点算错
+  - 键盘监听挂 **capture 阶段并就地 `stopPropagation`**：编辑器在 `window` 上也听着 keydown，不拦的话预览开着按 `Delete` 会直接删掉选中节点
 - **工作流卡片缩略图**：run 成功结束时自动抽产物首帧存 `data/thumbs/<wfId>.jpg`，首页卡片顶部铺成背景图（叠暗色遮罩保证节点数可读），高度从 88px 提到 104px；没跑过的画布仍用分类色块。抽帧异步执行、失败只记日志，不影响运行结果
   - 实现：`media-tools.saveThumb()` 用 `-ss 0.3 -i <url>`（input seeking）抽帧，对 CDN 链接只读开头不拉整个视频；取 0.3 秒避开开头黑场
   - 新增 `GET /api/workflows/:id/thumb`；`GET /api/workflows` 对存在缩略图的项返回 `thumb` 字段
