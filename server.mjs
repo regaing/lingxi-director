@@ -10,7 +10,7 @@
  * 不做的事：不缓存任务、不做队列、不做业务校验之外的改写（校验以网关为准）。
  */
 import { createServer } from 'node:http';
-import { createWriteStream } from 'node:fs';
+import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, readFile, writeFile, stat } from 'node:fs/promises';
 
 import { Readable } from 'node:stream';
@@ -258,6 +258,54 @@ async function serveStatic(res, urlPath) {
     'Cache-Control': 'no-store',
   });
   res.end(buf);
+}
+
+/**
+ * 带 Range 的整文件响应（素材专用）。
+ * 画布节点里的内嵌视频播放器必须靠它：浏览器先发 `bytes=0-` 探路、拖进度条时再发区间请求，
+ * 一律回 200 整包会退化成「整个文件下完才能拖」，几十 MB 的参考视频基本没法看。
+ */
+async function sendFileWithRange(req, res, filePath, mime, cacheControl) {
+  let size;
+  try {
+    size = (await stat(filePath)).size;
+  } catch {
+    throw new HttpError(404, '素材不存在');
+  }
+
+  const headers = { 'Content-Type': mime, 'Accept-Ranges': 'bytes', 'Cache-Control': cacheControl };
+  const pipe = (start, end) => {
+    const stream = createReadStream(filePath, start == null ? undefined : { start, end });
+    stream.on('error', () => res.destroy());
+    stream.pipe(res);
+  };
+
+  // 只认单区间 `bytes=a-b` / `bytes=a-` / `bytes=-n`；多区间（逗号）直接回落整包，播放器不会发
+  const m = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || '').trim());
+  if (!m || (m[1] === '' && m[2] === '')) {
+    res.writeHead(200, { ...headers, 'Content-Length': size });
+    return pipe();
+  }
+
+  let start; let end;
+  if (m[1] === '') {
+    start = Math.max(0, size - Number(m[2])); // bytes=-500 → 末尾 500 字节
+    end = size - 1;
+  } else {
+    start = Number(m[1]);
+    end = m[2] === '' ? size - 1 : Math.min(Number(m[2]), size - 1);
+  }
+
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || start >= size) {
+    res.writeHead(416, { 'Content-Range': `bytes */${size}` });
+    return res.end();
+  }
+  res.writeHead(206, {
+    ...headers,
+    'Content-Length': end - start + 1,
+    'Content-Range': `bytes ${start}-${end}/${size}`,
+  });
+  pipe(start, end);
 }
 
 /* ── API ── */
@@ -509,15 +557,10 @@ async function handleApi(req, res, url) {
   const assetGetMatch = url.pathname.match(/^\/api\/assets\/([^/]+)$/);
   if (assetGetMatch && req.method === 'GET') {
     const name = path.basename(decodeURIComponent(assetGetMatch[1]));
-    try {
-      const buf = await readFile(path.join(ASSETS_DIR, name));
-      const ext = path.extname(name).slice(1).toLowerCase();
-      const mime = ASSET_EXT_TO_MIME[ext] || 'application/octet-stream';
-      res.writeHead(200, { 'content-type': mime, 'cache-control': 'public, max-age=31536000, immutable' });
-      return res.end(buf);
-    } catch {
-      throw new HttpError(404, '素材不存在');
-    }
+    const ext = path.extname(name).slice(1).toLowerCase();
+    const mime = ASSET_EXT_TO_MIME[ext] || 'application/octet-stream';
+    // 走 Range：画布里的内嵌播放器要能边下边播、拖进度条
+    return sendFileWithRange(req, res, path.join(ASSETS_DIR, name), mime, 'public, max-age=31536000, immutable');
   }
 
   if (url.pathname === '/api/assets' && req.method === 'POST') {

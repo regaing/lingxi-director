@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { NODE_DEFS, assetKind } from '../graph/model.js';
 import { useI18n } from '../i18n.jsx';
 import { Ic } from '../components/Icons.jsx';
+import NodeVideo from '../components/NodeVideo.jsx';
 
 /** 字节数 → 人读的体积（节点卡片摘要用） */
 function fmtSize(bytes) {
@@ -50,6 +51,28 @@ export default function BaseNode({ id, type, data, selected }) {
   const ins = def.inputs || [];
   const outs = def.outputs || [];
   const status = data?.__status || 'idle';
+
+  const assets = (data?.assets || []);
+  const isMedia = type.startsWith('media.');
+  // 只要节点里有视频就用内嵌播放器，其余素材折叠到「+N」后面（展开后竖排）
+  const videos = assets.filter((a) => assetKind(a) === 'video');
+  const [openAll, setOpenAll] = useState(false);
+
+  /** 素材行：视频给真播放器（能直接看），图片给整行画面，音频/未知类型只给类型条 */
+  function renderAsset(a) {
+    const kind = assetKind(a);
+    const file = a.asset || a.name;
+    if (kind === 'video') return <NodeVideo key={file} src={`/api/assets/${file}`} title={a.name || ''} />;
+    if (kind === 'image') {
+      return <img key={file} className="wb-node__media-img" src={`/api/assets/${file}`} alt={a.name || ''} loading="lazy" />;
+    }
+    return (
+      <span key={file} className="wb-node__media-icon" title={`${a.name || ''} · ${t(`asset.${kind}`)}`}>
+        <Ic n={kind === 'audio' ? 'audio' : 'film'} size={13} />
+        <span className="wb-node__media-file">{a.name}</span>
+      </span>
+    );
+  }
 
   /* 节点卡片的摘要：优先展示最有信息量的已配置内容 */
   function summary() {
@@ -147,25 +170,43 @@ export default function BaseNode({ id, type, data, selected }) {
         </div>
       )}
 
-      {(data?.assets || []).length > 0 && type.startsWith('media.') ? (
-        <div className="wb-node__thumbs">
-          {data.assets.slice(0, 4).map((a) => {
-            // 视频/音频塞进 <img> 只会得到空白，改给类型图标（图片照旧出画面）
-            const kind = assetKind(a);
-            const file = a.asset || a.name;
-            return kind === 'image' ? (
-              <img key={file} src={`/api/assets/${file}`} alt={a.name || ''} loading="lazy" />
-            ) : (
-              <span
-                key={file}
-                className={`wb-node__thumb wb-node__thumb--icon${kind === 'audio' ? ' is-audio' : ''}`}
-                title={`${a.name || ''} · ${t(`asset.${kind}`)}`}
+      {isMedia && assets.length > 0 ? (
+        videos.length ? (
+          /* 有视频：只放开一个播放器，其余折叠成「+N」，点开在节点里竖向排开 */
+          <div className="wb-node__media nodrag nowheel">
+            {(openAll ? assets : videos.slice(0, 1)).map(renderAsset)}
+            {assets.length > 1 ? (
+              <button
+                type="button"
+                className="wb-node__media-more"
+                onClick={() => setOpenAll((v) => !v)}
+                title={openAll ? t('node.assets.less') : t('node.assets.more', { n: assets.length - 1 })}
               >
-                <Ic n={kind === 'audio' ? 'audio' : 'film'} size={16} />
-              </span>
-            );
-          })}
-        </div>
+                <Ic n={openAll ? 'chevronDown' : 'chevronRight'} size={11} />
+                <span>{openAll ? t('node.assets.less') : `+${assets.length - 1}`}</span>
+              </button>
+            ) : null}
+          </div>
+        ) : (
+          /* 纯图片/音频节点维持原来的小方格缩略图 */
+          <div className="wb-node__thumbs">
+            {assets.slice(0, 4).map((a) => {
+              const kind = assetKind(a);
+              const file = a.asset || a.name;
+              return kind === 'image' ? (
+                <img key={file} src={`/api/assets/${file}`} alt={a.name || ''} loading="lazy" />
+              ) : (
+                <span
+                  key={file}
+                  className={`wb-node__thumb wb-node__thumb--icon${kind === 'audio' ? ' is-audio' : ''}`}
+                  title={`${a.name || ''} · ${t(`asset.${kind}`)}`}
+                >
+                  <Ic n={kind === 'audio' ? 'audio' : 'film'} size={16} />
+                </span>
+              );
+            })}
+          </div>
+        )
       ) : null}
 
       {sum && !type.startsWith('media.') ? (

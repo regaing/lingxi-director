@@ -370,7 +370,7 @@ select.wb-input option { background: var(--surface-3); color: var(--text); }
 .wb-card.is-picked { background: var(--surface-3); box-shadow: inset 0 0 0 2px var(--accent); }
 
 .wb-card__thumb {
-  position: relative; height: 88px; overflow: hidden;
+  position: relative; height: 104px; overflow: hidden;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   display: flex; align-items: flex-start; justify-content: space-between;
   padding: 13px 14px;
@@ -382,7 +382,6 @@ select.wb-input option { background: var(--surface-3); color: var(--text); }
 }
 
 /* 有产物首帧时铺成背景图：图片垫底，暗色遮罩压住画面保证节点数可读 */
-.wb-card__thumb.has-img { height: 104px; }
 .wb-card__img {
   position: absolute; inset: 0; z-index: 0;
   width: 100%; height: 100%; object-fit: cover; display: block;
@@ -395,7 +394,16 @@ select.wb-input option { background: var(--surface-3); color: var(--text); }
 .wb-card__thumb.has-img .wb-card__edges,
 .wb-card__thumb.has-img .wb-card__check { z-index: 2; }
 .wb-card__nodes { position: relative; display: inline-flex; align-items: center; gap: 6px; font-size: 21px; font-weight: 700; color: #e4e0ff; letter-spacing: -.02em; }
-.wb-card__edges { position: relative; font-size: 10.5px; color: var(--text-dim); }
+/* 「N 条连线」压在分类色块或产物首帧上，背景可能和文字同色：垫一层半透明暗底 + 背景模糊，
+   文字始终可读；暗底与 .wb-card__check 同色，模糊把缩略图细节退到后面当氛围。 */
+.wb-card__edges {
+  position: relative; font-size: 10.5px; color: var(--text-dim);
+  padding: 2px 8px; margin-top: -2px; border-radius: 99px;
+  background: rgba(8, 8, 12, .55);
+  -webkit-backdrop-filter: blur(8px) saturate(1.2);
+  backdrop-filter: blur(8px) saturate(1.2);
+  white-space: nowrap;
+}
 
 .wb-card__check {
   position: absolute; top: 11px; right: 12px; width: 21px; height: 21px;
@@ -405,15 +413,15 @@ select.wb-input option { background: var(--surface-3); color: var(--text); }
 .wb-card__check.is-on { background: var(--accent); }
 
 .wb-card__body { padding: 11px 14px 13px; }
-.wb-card__body h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wb-card__meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 10.5px; color: var(--text-mute); }
+.wb-card__body h3 { margin: 0 0 5px; font-size: 15px; font-weight: 600; line-height: 1.34; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-card__meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--text-mute); }
 .wb-card__ops { position: absolute; top: 8px; right: 8px; z-index: 3; opacity: 0; transition: opacity .14s; }
 /* 有产物首帧时 .wb-card__edges 被抬到 z-index:2 压住图片遮罩，正好盖住右上角的三点按钮，
    点击就漏给 .wb-card 的 onClick 直接进画布。ops 必须更高（3）才能吃到点击。 */
 .wb-card:hover .wb-card__ops { opacity: 1; }
 .wb-card__ops .wb-icon-btn { background: rgba(8, 8, 12, .5); }
 
-.wb-tag { display: inline-flex; align-items: center; gap: 5px; padding: 1px 7px; border-radius: 99px; background: var(--surface-4); color: var(--text-dim); font-size: 10.5px; }
+.wb-tag { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 99px; background: var(--surface-4); color: var(--text-dim); font-size: 12px; }
 .wb-tag__dot { width: 6px; height: 6px; border-radius: 50%; }
 
 /* 下拉菜单 */
@@ -944,6 +952,29 @@ select.wb-input option { background: var(--surface-3); color: var(--text); }
 .wb-node__thumbs img { width: 42px; height: 42px; object-fit: cover; border-radius: 7px; background: var(--surface-3); }
 .wb-node__thumb--icon { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 7px; background: var(--surface-3); color: var(--text-dim); }
 .wb-node__thumb--icon.is-audio { color: var(--text-mute); }
+
+/* 素材节点里的内嵌播放：视频给真播放器，多素材展开后竖向堆叠（一行一个） */
+.wb-node__media { display: flex; flex-direction: column; gap: 6px; padding: 0 11px 10px; }
+.wb-node__video {
+  display: block; width: 100%; max-height: 168px; border-radius: 9px;
+  background: #000; object-fit: contain;
+}
+.wb-node__media-img {
+  display: block; width: 100%; max-height: 168px; border-radius: 9px;
+  background: var(--surface-3); object-fit: cover;
+}
+.wb-node__media-icon {
+  display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 8px;
+  background: var(--surface-3); color: var(--text-dim); font-size: 10.5px; overflow: hidden;
+}
+.wb-node__media-file { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-node__media-more {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 3px;
+  padding: 3px 8px; border: none; border-radius: 99px;
+  background: var(--surface-3); color: var(--text-dim);
+  font: inherit; font-size: 10.5px; cursor: pointer; transition: background .14s, color .14s;
+}
+.wb-node__media-more:hover { background: var(--surface-4); color: var(--text); }
 
 .react-flow__handle.wb-h {
   width: 9px; height: 9px;

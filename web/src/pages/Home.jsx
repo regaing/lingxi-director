@@ -625,10 +625,10 @@ export default function Home() {
                 <div className="wb-card__body">
                   <h3 title={it.name}>{it.name || it.id}</h3>
                   <div className="wb-card__meta">
+                    <span>{t('home.updated', { t: fmt(it.updatedAt) })}</span>
                     {it.categoryId ? (
                       <span className="wb-tag"><span className="wb-tag__dot" style={{ background: catColor(it.categoryId) }} />{catName(it.categoryId)}</span>
                     ) : null}
-                    <span>{t('home.updated', { t: fmt(it.updatedAt) })}</span>
                   </div>
                 </div>
 

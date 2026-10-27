@@ -96,7 +96,9 @@ config.json       token + baseUrl（gitignore，绝不写入本文件）
 | 素材宽高比 | **0.4–2.5 闭区间** |
 | 错误码 `2013` | **通用「参数校验失败」**，不只宽高比；必须看 message 判断是哪个参数 |
 | 素材形式 | base64 data URI 塞 `content`；请求体上限 200MB（`MAX_BODY`）。data URI 的 MIME 必须按扩展名映射（`runner.mjs` 的 `ASSET_DATA_MIME`），视频/音频拼成 `image/*` 会被网关 2013 挡掉 |
-| 素材缩略图 | **只有图片能用 `<img>` 出画面**：类型判定走 `graph/model.js` 的 `assetKind()`（先看上传时记的 `mime`，老数据退回落盘扩展名），视频/音频只给类型图标。别把 mp4 塞进 `<img>`（必然空白） |
+| 素材缩略图 | **只有图片能用 `<img>` 出画面**：类型判定走 `graph/model.js` 的 `assetKind()`（先看上传时记的 `mime`，老数据退回落盘扩展名）。别把 mp4 塞进 `<img>`（必然空白） |
+| 节点内看视频 | `media.*` 节点里的视频走 `components/NodeVideo.jsx` 内嵌播放（只放第一个，其余折叠成「+N」，点开在节点里竖排；纯图片节点仍是 42px 小方格）。播放器必须带 `nodrag nowheel`，否则拖进度条会拖节点、滚轮会缩放画布；`src` 带 `#t=0.1` 且 `preload=metadata` 才出首帧。全局单实例播放靠模块级 `claimPlayback()`（预览层也调它） |
+| 素材 Range | `GET /api/assets/:name` 走 `sendFileWithRange`，必须支持 `206` / `Accept-Ranges`：内嵌播放器靠它边下边播和拖进度条，回整包就退化成「下完才能拖」。`/downloads/` 静态托管仍是整包 |
 | 素材 mime↔扩展名 | `server.mjs` 的 `ASSET_MIME_TO_EXT` / `ASSET_EXT_TO_MIME` 必须成对增减；漏一个就会落成 `.bin`（浏览器不预览、网关不认）。上传响应回带 `mime` |
 | 素材放大预览 | 点素材缩略图开 `components/AssetLightbox.jsx`（portal 到 body；滚轮缩放 / 拖拽平移 / ←→ 切换 / Esc 关闭）。它的键盘监听必须留在 **window capture 阶段并 stopPropagation**，否则预览开着按 Delete 会把选中节点删掉 |
 | `aigc_watermark` | 三态：省略 / `true` / 显式 `false` |

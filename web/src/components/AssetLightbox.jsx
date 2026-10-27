@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Ic } from './Icons.jsx';
 import { useI18n } from '../i18n.jsx';
 import { assetKind } from '../graph/model.js';
+import { claimPlayback } from './NodeVideo.jsx';
 
 const MIN_SCALE = 1;
 const MAX_SCALE = 8;
@@ -178,7 +179,18 @@ export default function AssetLightbox({ items = [], index = 0, onClose, onIndexC
             style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
           />
         )}
-        {kind === 'video' && <video className="wb-lightbox__video" src={src} controls autoPlay loop playsInline />}
+        {/* 自动播放也算「开播」：把画布节点里正在放的暂停掉，全局只留一个声音 */}
+        {kind === 'video' && (
+          <video
+            className="wb-lightbox__video"
+            src={src}
+            controls
+            autoPlay
+            loop
+            playsInline
+            onPlay={(e) => claimPlayback(e.currentTarget)}
+          />
+        )}
         {kind === 'audio' && <audio className="wb-lightbox__audio" src={src} controls autoPlay />}
         {kind === 'file' && <div className="wb-lightbox__none">{t('asset.noPreview')}</div>}
       </div>

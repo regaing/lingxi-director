@@ -377,6 +377,8 @@ const D = {
   'asset.noPreview': ['该类型无法预览', 'No preview available'],
   'asset.hint': ['滚轮缩放 · 双击放大 · 拖拽平移 · ← → 切换 · Esc 关闭', 'Scroll to zoom · double-click · drag to pan · ← → · Esc'],
   'asset.hintMedia': ['← → 切换 · Esc 关闭', '← → switch · Esc to close'],
+  'node.assets.more': ['还有 {{n}} 个素材，点开在节点里展开', '{{n}} more media — expand in node'],
+  'node.assets.less': ['收起素材', 'Collapse media'],
 
   /* 通知中心 */
   'notif.title': ['通知', 'Notifications'],
