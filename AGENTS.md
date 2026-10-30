@@ -77,6 +77,7 @@ downloads/        产物落盘（gitignore）
 out/              图像/立绘等手工产物（gitignore）
 templates/        内置画布模板：一模板一目录（manifest.json + workflow.json + assets/），**要进仓库**
 scripts/          维护脚本（gen-template-assets.mjs 用 ffmpeg 生成模板占位图）
+plan/             方案与测试报告（planx skill 产出，**要进仓库**；文档内不写任何 Key）
 config.json       token + baseUrl（gitignore，绝不写入本文件）
 .run/             临时脚本（gitignore）
 ```
